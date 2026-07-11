@@ -1,2 +1,5 @@
-.vscode
-build
+.vscode/*
+build/
+third_party/_deps/
+assets/cooked/
+.cache/
