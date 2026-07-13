@@ -1,5 +1,5 @@
 #ifdef _WIN32
-    #define _CRT_SECURE_NO_WARNINGS // suppress warning about std::getenv
+#define _CRT_SECURE_NO_WARNINGS // suppress warning about std::getenv
 #endif
 
 #include "engine/core/log.hpp"
@@ -7,28 +7,33 @@
 #include <chrono>
 
 #ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
-    #define NOMINMAX
-    #include <windows.h>
-    #include <io.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <io.h>
 #else
-    #include <unistd.h>
+#include <unistd.h>
 #endif
 #include <cstdio>
 
-namespace core {
+namespace Core
+{
 
-namespace {
+namespace
+{
 
-bool enableColor(FILE* stream) {
+bool enableColor(FILE* stream)
+{
     const char* forceColor = std::getenv("CLICOLOR_FORCE");
 
-    if (forceColor && forceColor[0] == '1') {
+    if (forceColor && forceColor[0] == '1')
+    {
 #ifdef _WIN32
         HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stream)));
 
         DWORD mode = 0;
-        if (GetConsoleMode(handle, &mode)) {
+        if (GetConsoleMode(handle, &mode))
+        {
             SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
         }
 #endif
@@ -36,14 +41,16 @@ bool enableColor(FILE* stream) {
     }
 
 #ifdef _WIN32
-    if (!_isatty(_fileno(stream))) {
+    if (!_isatty(_fileno(stream)))
+    {
         return false;
     }
 
     HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(stream)));
     DWORD mode = 0;
 
-    if (!GetConsoleMode(handle, &mode)) {
+    if (!GetConsoleMode(handle, &mode))
+    {
         return false;
     }
 
@@ -54,21 +61,32 @@ bool enableColor(FILE* stream) {
 }
 
 constexpr const char* kReset = "\x1b[0m";
-constexpr const char* kDim   = "\x1b[90m";
-constexpr const char* kCyan  = "\x1b[36m";
+constexpr const char* kDim = "\x1b[90m";
+constexpr const char* kCyan = "\x1b[36m";
 
 } // namespace
 
-void logMessage(LogLevel level, std::string_view module, std::string_view message) {
+void logMessage(LogLevel level, std::string_view module, std::string_view message)
+{
     static const bool stdoutColor = enableColor(stdout);
     static const bool stderrColor = enableColor(stderr);
 
     const char* tag = "INFO ";
     const char* tagColor = "\x1b[32m"; // green
-    switch (level) {
-        case LogLevel::Info:  tag = "INFO "; tagColor = "\x1b[32m"; break;
-        case LogLevel::Warn:  tag = "WARN "; tagColor = "\x1b[33m"; break;
-        case LogLevel::Error: tag = "ERROR"; tagColor = "\x1b[31m"; break;
+    switch (level)
+    {
+        case LogLevel::Info:
+            tag = "INFO ";
+            tagColor = "\x1b[32m";
+            break;
+        case LogLevel::Warn:
+            tag = "WARN ";
+            tagColor = "\x1b[33m";
+            break;
+        case LogLevel::Error:
+            tag = "ERROR";
+            tagColor = "\x1b[31m";
+            break;
     }
 
     FILE* out = level == LogLevel::Error ? stderr : stdout;
@@ -79,13 +97,22 @@ void logMessage(LogLevel level, std::string_view module, std::string_view messag
         std::chrono::floor<std::chrono::milliseconds>(std::chrono::system_clock::now()));
 
     std::string line;
-    if (color) {
+    if (color)
+    {
         line = std::format("{}[{:%H:%M:%S}]{} {}[{}]{} {}[{}]{} {}\n",
-                           kDim, now, kReset,
-                           tagColor, tag, kReset,
-                           kCyan, module, kReset,
+                           kDim,
+                           now,
+                           kReset,
+                           tagColor,
+                           tag,
+                           kReset,
+                           kCyan,
+                           module,
+                           kReset,
                            message);
-    } else {
+    }
+    else
+    {
         line = std::format("[{:%H:%M:%S}] [{}] [{}] {}\n", now, tag, module, message);
     }
 
@@ -93,4 +120,4 @@ void logMessage(LogLevel level, std::string_view module, std::string_view messag
     std::fflush(out);
 }
 
-} // namespace core
+} // namespace Core

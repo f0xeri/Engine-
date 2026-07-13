@@ -1,0 +1,23 @@
+CompileFlags:
+  CompilationDatabase: build/dev
+  # clangd is a clang-based tool but the flags come from the MSVC-targeting driver;
+  # nothing to strip today. Add Remove: entries here if a flag ever confuses it.
+
+Diagnostics:
+  UnusedIncludes: Strict
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - performance-*
+      - modernize-*
+      - readability-*
+    Remove:
+      - modernize-use-trailing-return-type
+      - readability-magic-numbers
+      - readability-identifier-length
+      - bugprone-easily-swappable-parameters
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
