@@ -4,6 +4,7 @@ add_library(engine STATIC
     platform/window.cpp
     gpu/vulkan.cpp
     gpu/swapchain.cpp
+    gpu/frame.cpp
 )
 
 target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR})
