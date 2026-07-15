@@ -64,3 +64,6 @@ FetchContent_Declare(slang
 # stb / cgltf are vendored single headers in third_party/, not fetched.
 
 FetchContent_MakeAvailable(SDL3 VulkanHeaders VulkanMemoryAllocator glm imgui slang)
+
+# The prebuilt slang package ships its own CMake config (imported target slang::slang).
+find_package(slang REQUIRED CONFIG NO_DEFAULT_PATH PATHS "${slang_SOURCE_DIR}/cmake")

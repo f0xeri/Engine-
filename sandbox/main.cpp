@@ -1,14 +1,39 @@
-#include "engine/gpu/vulkan.hpp"
-#include "engine/platform/window.hpp"
+#include "engine/App/Application.hpp"
 
-int main(int, char**)
+#include <cmath>
+
+namespace
 {
-    Platform::Window window({.title = "Engine sandbox"});
-    GPU::VulkanContext vulkan(window);
 
-    while (window.pumpEvents())
-    {
-    }
+struct PushConstants
+{
+    float tint[4];
+};
+
+} // namespace
+
+int main()
+{
+    App::Application app({.title = "Engine sandbox",
+                          .shaderRoot = ENGINE_SHADER_DIR,
+                          .pipelineCache = ENGINE_PIPELINE_CACHE});
+
+    const auto triangle = app.loadPipeline("Triangle");
+
+    float time = 0.0f;
+
+    app.run(
+        [&](const App::FrameInfo& frame)
+        {
+            time += frame.dt;
+            const float pulse = 0.75f + (0.25f * std::sin(time * 2.0f));
+            const PushConstants push{{pulse, pulse, pulse, 1.0f}};
+
+            frame.cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, app.pipeline(triangle));
+            frame.cmd.pushConstants<PushConstants>(
+                app.pipelines().layout(), vk::ShaderStageFlagBits::eAll, 0, push);
+            frame.cmd.draw(3, 1, 0, 0);
+        });
 
     return 0;
 }

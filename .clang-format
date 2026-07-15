@@ -25,6 +25,8 @@ AllowShortCaseLabelsOnASingleLine: false
 IndentCaseLabels: true
 
 AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
 BinPackArguments: false
 BinPackParameters: false
 

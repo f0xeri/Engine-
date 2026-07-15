@@ -52,7 +52,8 @@ uint32_t pickImageCount(const vk::SurfaceCapabilitiesKHR& caps)
 
 } // namespace
 
-Swapchain::Swapchain(VulkanContext& ctx, Platform::Extent2D extent) : _ctx(ctx)
+Swapchain::Swapchain(VulkanContext& ctx, Platform::Extent2D extent)
+    : _ctx(ctx)
 {
     create(extent, nullptr);
 }

@@ -1,10 +1,16 @@
 add_library(engine STATIC
-    core/env.cpp
-    core/log.cpp
-    platform/window.cpp
-    gpu/vulkan.cpp
-    gpu/swapchain.cpp
-    gpu/frame.cpp
+    Core/Env.cpp
+    Core/FileWatcher/FileWatcher.cpp
+    Core/FileWatcher/FileWatcherWindows.cpp
+    Core/Log.cpp
+    Platform/Window.cpp
+    GPU/VulkanContext.cpp
+    GPU/Swapchain.cpp
+    GPU/FrameContext.cpp
+    GPU/PipelineFactory.cpp
+    Shader/ShaderSystem.cpp
+    Renderer/PipelineRegistry.cpp
+    App/Application.cpp
 )
 
 target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR})
@@ -21,5 +27,6 @@ target_link_libraries(engine
         GPUOpen::VulkanMemoryAllocator
         SDL3::SDL3
     PRIVATE
+        slang::slang
         engine_warnings
 )
