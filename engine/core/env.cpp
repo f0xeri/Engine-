@@ -2,7 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS // the MSVC CRT deprecates std::getenv
 #endif
 
-#include "engine/core/env.hpp"
+#include "engine/Core/Env.hpp"
 
 #include <cstdlib>
 #include <cstring>

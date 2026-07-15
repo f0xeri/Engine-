@@ -1,6 +1,6 @@
-#include "engine/gpu/frame.hpp"
+#include "engine/GPU/FrameContext.hpp"
 
-#include "engine/core/log.hpp"
+#include "engine/Core/Log.hpp"
 
 #include <cstdlib>
 

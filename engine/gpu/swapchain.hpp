@@ -1,7 +1,7 @@
 #pragma once
 
-#include "engine/gpu/vulkan.hpp"
-#include "engine/platform/window.hpp"
+#include "engine/GPU/VulkanContext.hpp"
+#include "engine/Platform/Window.hpp"
 
 #include <cstdint>
 #include <optional>

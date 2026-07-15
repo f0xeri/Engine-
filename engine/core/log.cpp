@@ -2,7 +2,7 @@
 #define _CRT_SECURE_NO_WARNINGS // suppress warning about std::getenv
 #endif
 
-#include "engine/core/log.hpp"
+#include "engine/Core/Log.hpp"
 
 #include <chrono>
 

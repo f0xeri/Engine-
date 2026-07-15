@@ -1,9 +1,9 @@
-#include "engine/platform/window.hpp"
+#include "engine/Platform/Window.hpp"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
-#include "engine/core/log.hpp"
+#include "engine/Core/Log.hpp"
 
 namespace Platform
 {

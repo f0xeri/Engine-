@@ -1,6 +1,6 @@
-#include "engine/gpu/swapchain.hpp"
+#include "engine/GPU/Swapchain.hpp"
 
-#include "engine/core/log.hpp"
+#include "engine/Core/Log.hpp"
 
 #include <algorithm>
 
