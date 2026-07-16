@@ -64,7 +64,8 @@ PipelineFactory::~PipelineFactory()
 
 vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpirv,
                                              std::span<const uint32_t> fragmentSpirv,
-                                             vk::Format colorFormat) const
+                                             vk::Format colorFormat,
+                                             vk::Format depthFormat) const
 {
     const vk::ShaderModuleCreateInfo vsInfo({}, vertexSpirv.size_bytes(), vertexSpirv.data());
     const vk::ShaderModuleCreateInfo fsInfo({}, fragmentSpirv.size_bytes(), fragmentSpirv.data());
@@ -101,7 +102,15 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
                                               vk::DynamicState::eScissor};
     const vk::PipelineDynamicStateCreateInfo dynamic({}, dynamicStates);
 
-    const vk::PipelineRenderingCreateInfo rendering(0, colorFormat);
+    vk::PipelineDepthStencilStateCreateInfo depthStencil;
+    if (depthFormat != vk::Format::eUndefined)
+    {
+        depthStencil.depthTestEnable = vk::True;
+        depthStencil.depthWriteEnable = vk::True;
+        depthStencil.depthCompareOp = vk::CompareOp::eGreater; // reversed-Z
+    }
+
+    const vk::PipelineRenderingCreateInfo rendering(0, colorFormat, depthFormat);
 
     vk::GraphicsPipelineCreateInfo info;
     info.pNext = &rendering;
@@ -112,6 +121,7 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
     info.pViewportState = &viewport;
     info.pRasterizationState = &raster;
     info.pMultisampleState = &multisample;
+    info.pDepthStencilState = &depthStencil;
     info.pColorBlendState = &blend;
     info.pDynamicState = &dynamic;
     info.layout = _layout;

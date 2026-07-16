@@ -1,6 +1,6 @@
 #include "engine/App/Application.hpp"
-#include "engine/Core/Log.hpp"
 #include "engine/Platform/Input.hpp"
+#include "engine/RenderGraph/RenderGraph.hpp"
 
 #include <cmath>
 
@@ -36,10 +36,21 @@ int main()
             const float pulse = 0.75f + (0.25f * std::sin(time * 2.0f));
             const PushConstants push{{pulse, pulse, pulse, 1.0f}};
 
-            frame.cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, app.pipeline(triangle));
-            frame.cmd.pushConstants<PushConstants>(
-                app.pipelines().layout(), vk::ShaderStageFlagBits::eAll, 0, push);
-            frame.cmd.draw(3, 1, 0, 0);
+            const auto depth =
+                frame.graph.createTexture({.format = Graph::Format::D32, .extent = frame.extent});
+
+            const Graph::PassDesc passDesc{
+                .color = {{frame.backbuffer, Graph::LoadOp::Clear, {0.05f, 0.05f, 0.08f, 1.0f}}},
+                .depth = Graph::DepthAttachment{.texture = depth}};
+
+            frame.graph.addPass("triangle",
+                                passDesc,
+                                [&app, triangle, push](Graph::CmdRecorder& rec)
+                                {
+                                    rec.bindPipeline(app.pipeline(triangle));
+                                    rec.pushConstants(push);
+                                    rec.draw(3);
+                                });
         });
 
     return 0;

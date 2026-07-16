@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/GPU/Pipeline.hpp"
 #include "engine/GPU/PipelineFactory.hpp"
 #include "engine/GPU/VulkanContext.hpp"
 #include "engine/Shader/ShaderSystem.hpp"
@@ -35,9 +36,12 @@ public:
     PipelineRegistry& operator=(const PipelineRegistry&) = delete;
 
     // blocks until the pipeline is built (startup only)
-    PipelineHandle load(std::string module, vk::Format colorFormat);
+    PipelineHandle load(std::string module, vk::Format colorFormat, vk::Format depthFormat);
 
-    vk::Pipeline get(PipelineHandle handle) const { return _table[handle.value]; }
+    GPU::Pipeline get(PipelineHandle handle) const
+    {
+        return {_table[handle.value], _factory.layout()};
+    }
 
     // swaps rebuilt pipelines in and destroys retired ones proven complete by
     // begin(frameIndex)'s fence wait; call once per frame after begin()

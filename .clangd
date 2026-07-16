@@ -22,6 +22,9 @@ Diagnostics:
       - readability-identifier-length
       - readability-implicit-bool-conversion
       - readability-uppercase-literal-suffix
+      # desc structs need "= {}" so partial designated init passes
+      # -Wmissing-designated-field-initializers; tidy calls that redundant
+      - readability-redundant-member-init
       - bugprone-easily-swappable-parameters
 
 InlayHints:

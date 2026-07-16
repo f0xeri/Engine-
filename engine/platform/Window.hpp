@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/Platform/Extent2D.hpp"
 #include "engine/Platform/Input.hpp"
 
 #include <cstdint>
@@ -18,12 +19,6 @@ struct WindowDesc
     const char* title = "Engine";
     uint32_t width = 1280;
     uint32_t height = 720;
-};
-
-struct Extent2D
-{
-    uint32_t width = 0;
-    uint32_t height = 0;
 };
 
 class Window

@@ -10,6 +10,8 @@ add_library(engine STATIC
     GPU/FrameContext.cpp
     GPU/PipelineFactory.cpp
     Shader/ShaderSystem.cpp
+    RenderGraph/RenderGraph.cpp
+    RenderGraph/CmdRecorder.cpp
     Renderer/PipelineRegistry.cpp
     App/Application.cpp
 )

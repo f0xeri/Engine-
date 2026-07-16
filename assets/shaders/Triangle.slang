@@ -28,7 +28,7 @@ struct VSOutput
 VSOutput vsMain(uint vertexId : SV_VertexID)
 {
     VSOutput output;
-    output.position = float4(kPositions[vertexId], 0.0, 1.0);
+    output.position = float4(kPositions[vertexId], 0.5, 1.0);
     output.color = kColors[vertexId];
     return output;
 }
