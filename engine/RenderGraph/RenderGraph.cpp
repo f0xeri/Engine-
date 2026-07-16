@@ -67,8 +67,8 @@ RenderGraph::~RenderGraph()
     trim();
 }
 
-ResourceHandle RenderGraph::importBackbuffer(vk::Image image, vk::ImageView view,
-                                             vk::Extent2D extent)
+ResourceHandle
+RenderGraph::importBackbuffer(vk::Image image, vk::ImageView view, vk::Extent2D extent)
 {
     // srcStage must intersect the acquire semaphore's wait stage, or the first
     // transition is not ordered after the acquire.
@@ -121,8 +121,8 @@ ResourceHandle RenderGraph::createTexture(const TextureDesc& desc)
             vmaCreateImage(_ctx.allocator, &rawInfo, &allocInfo, &image, &allocation, nullptr);
         if (result != VK_SUCCESS)
         {
-            LOG_ERROR(Graph, "transient image creation failed: {}",
-                      vk::to_string(vk::Result(result)));
+            LOG_ERROR(
+                Graph, "transient image creation failed: {}", vk::to_string(vk::Result(result)));
             std::abort();
         }
 
@@ -233,18 +233,15 @@ void RenderGraph::execute(vk::CommandBuffer cmd)
             cmd.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT(pass.name.c_str()));
         }
 
-        cmd.beginRendering(vk::RenderingInfo({},
-                                             {{}, area},
-                                             1,
-                                             0,
-                                             colorInfos,
-                                             pass.desc.depth ? &depthInfo : nullptr));
+        cmd.beginRendering(vk::RenderingInfo(
+            {}, {{}, area}, 1, 0, colorInfos, pass.desc.depth ? &depthInfo : nullptr));
 
+        // negative height - Y-flip (clip +Y = screen up)
         cmd.setViewport(0,
                         vk::Viewport(0.0f,
-                                     0.0f,
-                                     static_cast<float>(area.width),
                                      static_cast<float>(area.height),
+                                     static_cast<float>(area.width),
+                                     -static_cast<float>(area.height),
                                      0.0f,
                                      1.0f));
         cmd.setScissor(0, vk::Rect2D({}, area));

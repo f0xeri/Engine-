@@ -14,6 +14,7 @@ add_library(engine STATIC
     RenderGraph/CmdRecorder.cpp
     Renderer/PipelineRegistry.cpp
     App/Application.cpp
+    App/FlyCamera.cpp
 )
 
 target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR})

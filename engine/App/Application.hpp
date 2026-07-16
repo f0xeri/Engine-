@@ -37,6 +37,8 @@ public:
     // exits run() after the current frame
     void quit() { _quit = true; }
 
+    void setRelativeMouseMode(bool enabled);
+
     Renderer::PipelineHandle loadPipeline(std::string module);
     GPU::Pipeline pipeline(Renderer::PipelineHandle handle) const;
 

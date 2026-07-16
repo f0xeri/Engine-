@@ -67,9 +67,13 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
     }
 }
 
+void Application::setRelativeMouseMode(bool enabled)
+{
+    _window.setRelativeMouseMode(enabled);
+}
+
 Renderer::PipelineHandle Application::loadPipeline(std::string module)
 {
-    // v1: every raster pipeline targets the swapchain + the single D32 depth transient
     return _registry.load(std::move(module), _swapchain.format(), vk::Format::eD32Sfloat);
 }
 
