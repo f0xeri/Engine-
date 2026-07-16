@@ -1,4 +1,6 @@
 #include "engine/App/Application.hpp"
+#include "engine/Core/Log.hpp"
+#include "engine/Platform/Input.hpp"
 
 #include <cmath>
 
@@ -25,6 +27,11 @@ int main()
     app.run(
         [&](const App::FrameInfo& frame)
         {
+            if (frame.input.pressed(Platform::Key::Escape))
+            {
+                app.quit();
+            }
+
             time += frame.dt;
             const float pulse = 0.75f + (0.25f * std::sin(time * 2.0f));
             const PushConstants push{{pulse, pulse, pulse, 1.0f}};

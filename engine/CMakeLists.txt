@@ -4,6 +4,7 @@ add_library(engine STATIC
     Core/FileWatcher/FileWatcherWindows.cpp
     Core/Log.cpp
     Platform/Window.cpp
+    Platform/Input.cpp
     GPU/VulkanContext.cpp
     GPU/Swapchain.cpp
     GPU/FrameContext.cpp

@@ -19,7 +19,7 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
     bool resizeRequested = false;
     auto last = std::chrono::steady_clock::now();
 
-    while (_window.pumpEvents())
+    while (!_quit && _window.pumpEvents())
     {
         const auto now = std::chrono::steady_clock::now();
         const float dt = std::chrono::duration<float>(now - last).count();
@@ -53,7 +53,7 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
             continue;
         }
 
-        recordFrame(*imageIndex, tick, {frame.cmd, _swapchain.extent(), dt});
+        recordFrame(*imageIndex, tick, {frame.cmd, _swapchain.extent(), _window.input(), dt});
 
         _frames.submit(_swapchain.renderFinished(*imageIndex));
         resizeRequested = !_swapchain.present(*imageIndex);

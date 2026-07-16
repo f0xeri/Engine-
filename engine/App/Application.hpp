@@ -18,6 +18,7 @@ struct FrameInfo
 {
     vk::CommandBuffer cmd;
     vk::Extent2D extent;
+    const Platform::Input& input;
     float dt;
 };
 
@@ -30,6 +31,9 @@ public:
     Application& operator=(const Application&) = delete;
 
     void run(const std::function<void(const FrameInfo&)>& tick);
+
+    // exits run() after the current frame
+    void quit() { _quit = true; }
 
     Renderer::PipelineHandle loadPipeline(std::string module);
     vk::Pipeline pipeline(Renderer::PipelineHandle handle) const;
@@ -48,5 +52,7 @@ private:
     GPU::FrameContext _frames;
     GPU::PipelineFactory _pipelines;
     Renderer::PipelineRegistry _registry;
+
+    bool _quit = false;
 };
 } // namespace App

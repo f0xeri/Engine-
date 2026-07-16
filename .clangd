@@ -5,6 +5,9 @@ CompileFlags:
 
 Diagnostics:
   UnusedIncludes: Strict
+  Includes:
+    IgnoreHeader:
+      - Core/Math\.hpp    # used to include glm
   ClangTidy:
     Add:
       - bugprone-*
