@@ -12,6 +12,7 @@ add_library(engine_warnings INTERFACE)
 target_compile_options(engine_warnings INTERFACE -Wall -Wextra -Werror)
 
 include(cmake/dependencies.cmake)
+include(cmake/assets.cmake)
 
 add_subdirectory(engine)
 add_subdirectory(sandbox)

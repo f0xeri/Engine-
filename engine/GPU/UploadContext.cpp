@@ -73,6 +73,126 @@ void UploadContext::destroyStaging()
     }
 }
 
+void UploadContext::beginCmd()
+{
+    _ctx.device.resetCommandPool(_cmdPool);
+    _cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+}
+
+void UploadContext::submitAndWait()
+{
+    _cmd.end();
+    _ctx.graphicsQueue.submit(vk::SubmitInfo({}, {}, _cmd), _fence);
+    if (_ctx.device.waitForFences(_fence, vk::True, UINT64_MAX) != vk::Result::eSuccess)
+    {
+        LOG_ERROR(Vulkan, "upload fence wait failed");
+        std::abort();
+    }
+    _ctx.device.resetFences(_fence);
+}
+
+void UploadContext::uploadImage(vk::Image image,
+                                uint32_t width,
+                                uint32_t height,
+                                uint32_t mipLevels,
+                                std::span<const std::byte> rgba)
+{
+    using enum vk::ImageLayout;
+
+    const auto mipRange = [&](uint32_t base, uint32_t count)
+    {
+        return vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, base, count, 0, 1);
+    };
+
+    const auto transition = [&](vk::ImageSubresourceRange range,
+                                vk::PipelineStageFlags2 srcStage,
+                                vk::AccessFlags2 srcAccess,
+                                vk::ImageLayout oldLayout,
+                                vk::PipelineStageFlags2 dstStage,
+                                vk::AccessFlags2 dstAccess,
+                                vk::ImageLayout newLayout)
+    {
+        const vk::ImageMemoryBarrier2 barrier(srcStage,
+                                              srcAccess,
+                                              dstStage,
+                                              dstAccess,
+                                              oldLayout,
+                                              newLayout,
+                                              vk::QueueFamilyIgnored,
+                                              vk::QueueFamilyIgnored,
+                                              image,
+                                              range);
+        _cmd.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, barrier));
+    };
+
+    ensureStaging(rgba.size());
+    std::memcpy(_mapped, rgba.data(), rgba.size());
+    vmaFlushAllocation(_ctx.allocator, _stagingAlloc, 0, rgba.size());
+
+    beginCmd();
+
+    const auto transfer = vk::PipelineStageFlagBits2::eTransfer;
+
+    transition(mipRange(0, mipLevels),
+               vk::PipelineStageFlagBits2::eNone,
+               vk::AccessFlagBits2::eNone,
+               eUndefined,
+               transfer,
+               vk::AccessFlagBits2::eTransferWrite,
+               eTransferDstOptimal);
+
+    const vk::BufferImageCopy copy(
+        0, 0, 0, {vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {}, {width, height, 1});
+    _cmd.copyBufferToImage(_staging, image, eTransferDstOptimal, copy);
+
+    uint32_t srcW = width;
+    uint32_t srcH = height;
+    for (uint32_t mip = 1; mip < mipLevels; ++mip)
+    {
+        transition(mipRange(mip - 1, 1),
+                   transfer,
+                   vk::AccessFlagBits2::eTransferWrite,
+                   eTransferDstOptimal,
+                   transfer,
+                   vk::AccessFlagBits2::eTransferRead,
+                   eTransferSrcOptimal);
+
+        const uint32_t dstW = std::max(srcW / 2, 1u);
+        const uint32_t dstH = std::max(srcH / 2, 1u);
+        const vk::ImageBlit2 region(
+            {vk::ImageAspectFlagBits::eColor, mip - 1, 0, 1},
+            {vk::Offset3D{}, {static_cast<int32_t>(srcW), static_cast<int32_t>(srcH), 1}},
+            {vk::ImageAspectFlagBits::eColor, mip, 0, 1},
+            {vk::Offset3D{}, {static_cast<int32_t>(dstW), static_cast<int32_t>(dstH), 1}});
+        _cmd.blitImage2(
+            {image, eTransferSrcOptimal, image, eTransferDstOptimal, region, vk::Filter::eLinear});
+
+        srcW = dstW;
+        srcH = dstH;
+    }
+
+    // after the loop: mips [0..n-2] are TRANSFER_SRC, the last one TRANSFER_DST
+    if (mipLevels > 1)
+    {
+        transition(mipRange(0, mipLevels - 1),
+                   transfer,
+                   vk::AccessFlagBits2::eTransferRead,
+                   eTransferSrcOptimal,
+                   vk::PipelineStageFlagBits2::eFragmentShader,
+                   vk::AccessFlagBits2::eShaderRead,
+                   eShaderReadOnlyOptimal);
+    }
+    transition(mipRange(mipLevels - 1, 1),
+               transfer,
+               vk::AccessFlagBits2::eTransferWrite,
+               eTransferDstOptimal,
+               vk::PipelineStageFlagBits2::eFragmentShader,
+               vk::AccessFlagBits2::eShaderRead,
+               eShaderReadOnlyOptimal);
+
+    submitAndWait();
+}
+
 void UploadContext::upload(vk::Buffer dst,
                            vk::DeviceSize dstOffset,
                            std::span<const std::byte> data)
@@ -82,8 +202,7 @@ void UploadContext::upload(vk::Buffer dst,
     std::memcpy(_mapped, data.data(), data.size());
     vmaFlushAllocation(_ctx.allocator, _stagingAlloc, 0, data.size()); // no-op if coherent
 
-    _ctx.device.resetCommandPool(_cmdPool);
-    _cmd.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    beginCmd();
     _cmd.copyBuffer(_staging, dst, vk::BufferCopy(0, dstOffset, data.size()));
 
     // fence guarantees execution, not visibility to future submits - flush here
@@ -92,15 +211,8 @@ void UploadContext::upload(vk::Buffer dst,
                                      vk::PipelineStageFlagBits2::eAllCommands,
                                      vk::AccessFlagBits2::eMemoryRead);
     _cmd.pipelineBarrier2(vk::DependencyInfo({}, barrier, {}, {}));
-    _cmd.end();
 
-    _ctx.graphicsQueue.submit(vk::SubmitInfo({}, {}, _cmd), _fence);
-    if (_ctx.device.waitForFences(_fence, vk::True, UINT64_MAX) != vk::Result::eSuccess)
-    {
-        LOG_ERROR(Vulkan, "upload fence wait failed");
-        std::abort();
-    }
-    _ctx.device.resetFences(_fence);
+    submitAndWait();
 }
 
 } // namespace GPU

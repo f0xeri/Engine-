@@ -1,5 +1,6 @@
 .vscode/*
 build/
 third_party/_deps/
+assets/external/
 assets/cooked/
 .cache/

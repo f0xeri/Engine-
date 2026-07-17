@@ -5,6 +5,7 @@ target_link_libraries(sandbox PRIVATE engine engine_warnings)
 target_compile_definitions(sandbox PRIVATE
     ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/assets/shaders"
     ENGINE_PIPELINE_CACHE="${CMAKE_BINARY_DIR}/pipeline_cache.bin"
+    ENGINE_SAMPLE_ASSETS_DIR="${GLTF_SAMPLES_DIR}"
 )
 
 # slang.dll loads its sibling DLLs and the standard module from its own directory.

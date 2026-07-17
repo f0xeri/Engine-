@@ -19,6 +19,7 @@ ReferenceAlignment: Left
 DerivePointerAlignment: false
 
 AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false

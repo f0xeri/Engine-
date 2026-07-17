@@ -14,6 +14,7 @@ Application::Application(const Config& config)
     , _pipelines(_gpuContext, _bindless.setLayout(), config.pipelineCache)
     , _uploader(_gpuContext)
     , _geometry(_gpuContext, _bindless, _uploader)
+    , _assets(_gpuContext, _bindless, _uploader, _geometry)
     , _graph(_gpuContext)
     , _registry(_gpuContext, _pipelines, config.shaderRoot)
 {

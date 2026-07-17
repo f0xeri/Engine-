@@ -20,9 +20,17 @@ public:
 
     void upload(vk::Buffer dst, vk::DeviceSize dstOffset, std::span<const std::byte> data);
 
+    void uploadImage(vk::Image image,
+                     uint32_t width,
+                     uint32_t height,
+                     uint32_t mipLevels,
+                     std::span<const std::byte> rgba);
+
 private:
     void ensureStaging(vk::DeviceSize size);
     void destroyStaging();
+    void beginCmd();
+    void submitAndWait();
 
     VulkanContext& _ctx;
 

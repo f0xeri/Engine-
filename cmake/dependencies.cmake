@@ -61,7 +61,30 @@ FetchContent_Declare(slang
     URL_HASH SHA256=6bae110faa3b51ea00316e0a1dd4f40b11eb196a2e3a135074300bf2d5d4c777)
 
 # --- future, same rules: libktx, EnTT, Jolt, meshoptimizer ---
-# stb / cgltf are vendored single headers in third_party/, not fetched.
+
+# --- single headers, downloaded like any pinned artifact (URL + SHA256) ---
+set(SINGLE_HEADERS_DIR "${FETCHCONTENT_BASE_DIR}/single-headers")
+function(fetch_single_header subdir name url sha256)
+    file(DOWNLOAD "${url}" "${SINGLE_HEADERS_DIR}/${subdir}/${name}"
+         EXPECTED_HASH SHA256=${sha256} STATUS status)
+    list(GET status 0 code)
+    if(NOT code EQUAL 0)
+        message(FATAL_ERROR "download failed: ${url} (${status})")
+    endif()
+endfunction()
+
+# cgltf v1.15
+fetch_single_header(cgltf cgltf.h
+    https://raw.githubusercontent.com/jkuhlmann/cgltf/v1.15/cgltf.h
+    e378a21c084bf1f288bb799de827bb26906efb024255f1ecf1705ea13f11c6ec)   # sha
+# stb_image v2.30, pinned by commit
+fetch_single_header(stb stb_image.h
+    https://raw.githubusercontent.com/nothings/stb/31c1ad37456438565541f4919958214b6e762fb4/stb_image.h
+    594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3)
+
+# SYSTEM include keeps -Werror off them.
+add_library(single_headers INTERFACE)
+target_include_directories(single_headers SYSTEM INTERFACE "${SINGLE_HEADERS_DIR}")
 
 FetchContent_MakeAvailable(SDL3 VulkanHeaders VulkanMemoryAllocator glm imgui slang)
 

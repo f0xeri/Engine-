@@ -12,6 +12,7 @@ add_library(engine STATIC
     GPU/PipelineFactory.cpp
     GPU/UploadContext.cpp
     Asset/GeometryPool.cpp
+    Asset/Library.cpp
     Shader/ShaderSystem.cpp
     RenderGraph/RenderGraph.cpp
     RenderGraph/CmdRecorder.cpp
@@ -35,5 +36,6 @@ target_link_libraries(engine
         SDL3::SDL3
     PRIVATE
         slang::slang
+        single_headers
         engine_warnings
 )

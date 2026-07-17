@@ -8,6 +8,7 @@
 #include "engine/GPU/Swapchain.hpp"
 #include "engine/GPU/PipelineFactory.hpp"
 #include "engine/Asset/GeometryPool.hpp"
+#include "engine/Asset/Library.hpp"
 #include "engine/GPU/BindlessRegistry.hpp"
 #include "engine/GPU/FrameContext.hpp"
 #include "engine/GPU/UploadContext.hpp"
@@ -46,6 +47,7 @@ public:
     GPU::Pipeline pipeline(Renderer::PipelineHandle handle) const;
 
     Asset::GeometryPool& geometry() { return _geometry; }
+    Asset::Library& assets() { return _assets; }
 
 private:
     void resize();
@@ -58,6 +60,7 @@ private:
     GPU::PipelineFactory _pipelines;
     GPU::UploadContext _uploader;
     Asset::GeometryPool _geometry;
+    Asset::Library _assets;
     Graph::RenderGraph _graph; // destroyed after _registry's waitIdle
     Renderer::PipelineRegistry _registry;
 
