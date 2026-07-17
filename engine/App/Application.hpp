@@ -7,6 +7,7 @@
 #include "engine/GPU/VulkanContext.hpp"
 #include "engine/GPU/Swapchain.hpp"
 #include "engine/GPU/PipelineFactory.hpp"
+#include "engine/GPU/BindlessRegistry.hpp"
 #include "engine/GPU/FrameContext.hpp"
 #include "engine/RenderGraph/RenderGraph.hpp"
 #include "engine/Renderer/PipelineRegistry.hpp"
@@ -49,6 +50,7 @@ private:
     GPU::VulkanContext _gpuContext;
     GPU::Swapchain _swapchain;
     GPU::FrameContext _frames;
+    GPU::BindlessRegistry _bindless;
     GPU::PipelineFactory _pipelines;
     Graph::RenderGraph _graph; // destroyed after _registry's waitIdle
     Renderer::PipelineRegistry _registry;

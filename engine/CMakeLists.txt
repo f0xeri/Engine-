@@ -8,6 +8,7 @@ add_library(engine STATIC
     GPU/VulkanContext.cpp
     GPU/Swapchain.cpp
     GPU/FrameContext.cpp
+    GPU/BindlessRegistry.cpp
     GPU/PipelineFactory.cpp
     Shader/ShaderSystem.cpp
     RenderGraph/RenderGraph.cpp

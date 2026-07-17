@@ -12,7 +12,9 @@ namespace GPU
 class PipelineFactory
 {
 public:
-    PipelineFactory(VulkanContext& ctx, std::filesystem::path cacheFile);
+    PipelineFactory(VulkanContext& ctx,
+                    vk::DescriptorSetLayout bindlessLayout,
+                    std::filesystem::path cacheFile);
     ~PipelineFactory();
 
     PipelineFactory(const PipelineFactory&) = delete;

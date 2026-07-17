@@ -31,7 +31,9 @@ std::vector<char> readFileIfExists(const std::filesystem::path& path)
 
 } // namespace
 
-PipelineFactory::PipelineFactory(VulkanContext& ctx, std::filesystem::path cacheFile)
+PipelineFactory::PipelineFactory(VulkanContext& ctx,
+                                 vk::DescriptorSetLayout bindlessLayout,
+                                 std::filesystem::path cacheFile)
     : _ctx(ctx)
     , _cacheFile(std::move(cacheFile))
 {
@@ -40,7 +42,7 @@ PipelineFactory::PipelineFactory(VulkanContext& ctx, std::filesystem::path cache
     _cache = _ctx.device.createPipelineCache({{}, cached.size(), cached.data()});
 
     const vk::PushConstantRange pushRange(vk::ShaderStageFlagBits::eAll, 0, PushConstantBytes);
-    _layout = _ctx.device.createPipelineLayout({{}, {}, pushRange});
+    _layout = _ctx.device.createPipelineLayout({{}, bindlessLayout, pushRange});
 }
 
 PipelineFactory::~PipelineFactory()

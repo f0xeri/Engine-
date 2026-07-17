@@ -10,7 +10,8 @@ Application::Application(const Config& config)
     , _gpuContext(_window)
     , _swapchain(_gpuContext, _window.framebufferSize())
     , _frames(_gpuContext)
-    , _pipelines(_gpuContext, config.pipelineCache)
+    , _bindless(_gpuContext)
+    , _pipelines(_gpuContext, _bindless.setLayout(), config.pipelineCache)
     , _graph(_gpuContext)
     , _registry(_gpuContext, _pipelines, config.shaderRoot)
 {
@@ -54,6 +55,10 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
             _frames.abandon();
             continue;
         }
+
+        // the only descriptor bind in frame
+        frame.cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, _pipelines.layout(), 0, _bindless.set(), {});
 
         const vk::Extent2D extent = _swapchain.extent();
         const Graph::ResourceHandle backbuffer = _graph.importBackbuffer(
