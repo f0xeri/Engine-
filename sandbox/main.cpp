@@ -1,5 +1,6 @@
 #include "engine/App/Application.hpp"
 #include "engine/App/FlyCamera.hpp"
+#include "engine/Asset/GeometryPool.hpp"
 #include "engine/Core/Math.hpp"
 #include "engine/Platform/Input.hpp"
 #include "engine/RenderGraph/RenderGraph.hpp"
@@ -13,6 +14,29 @@ struct PushConstants
 {
     glm::mat4 mvp;
     float tint[4];
+    uint32_t vertexBufferSlot;
+    uint32_t baseVertex;
+};
+
+constexpr float H = 0.5f;
+const Asset::Vertex kCubeVertices[] = {
+    {{-H, -H, -H}, {}, {}},
+    {{H, -H, -H}, {}, {}},
+    {{H, H, -H}, {}, {}},
+    {{-H, H, -H}, {}, {}},
+    {{-H, -H, H}, {}, {}},
+    {{H, -H, H}, {}, {}},
+    {{H, H, H}, {}, {}},
+    {{-H, H, H}, {}, {}},
+};
+
+const uint32_t kCubeIndices[] = {
+    0, 1, 2, 0, 2, 3, // -Z
+    4, 6, 5, 4, 7, 6, // +Z
+    0, 3, 7, 0, 7, 4, // -X
+    1, 5, 6, 1, 6, 2, // +X
+    0, 4, 5, 0, 5, 1, // -Y
+    3, 2, 6, 3, 6, 7, // +Y
 };
 
 } // namespace
@@ -24,6 +48,7 @@ int main()
                           .pipelineCache = ENGINE_PIPELINE_CACHE});
 
     const auto cube = app.loadPipeline("Cube");
+    const Asset::MeshRange cubeMesh = app.geometry().add(kCubeVertices, kCubeIndices);
 
     App::FlyCamera camera;
     float time = 0.0f;
@@ -51,6 +76,8 @@ int main()
                 .mvp =
                     Core::perspective(glm::radians(70.0f), aspect, 0.01f) * camera.view() * model,
                 .tint = {pulse, pulse, pulse, 1.0f},
+                .vertexBufferSlot = app.geometry().vertexBufferSlot(),
+                .baseVertex = cubeMesh.baseVertex,
             };
 
             const auto depth =
@@ -60,11 +87,12 @@ int main()
                 "cube",
                 {.color = {{frame.backbuffer, Graph::LoadOp::Clear, {0.05f, 0.05f, 0.08f, 1.0f}}},
                  .depth = Graph::DepthAttachment{.texture = depth}},
-                [&app, cube, push](Graph::CmdRecorder& rec)
+                [&app, cube, cubeMesh, push](Graph::CmdRecorder& rec)
                 {
                     rec.bindPipeline(app.pipeline(cube));
+                    rec.bindIndexBuffer(app.geometry().indexBuffer());
                     rec.pushConstants(push);
-                    rec.draw(36);
+                    rec.drawIndexed(cubeMesh.indexCount, cubeMesh.firstIndex);
                 });
         });
 

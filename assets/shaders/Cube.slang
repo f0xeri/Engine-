@@ -1,27 +1,21 @@
-static const float3 kCorners[8] = {
-    float3(-0.5, -0.5, -0.5),
-    float3(0.5, -0.5, -0.5),
-    float3(0.5, 0.5, -0.5),
-    float3(-0.5, 0.5, -0.5),
-    float3(-0.5, -0.5, 0.5),
-    float3(0.5, -0.5, 0.5),
-    float3(0.5, 0.5, 0.5),
-    float3(-0.5, 0.5, 0.5),
+// matches Asset::Vertex byte for byte (scalar layout)
+struct Vertex
+{
+    float3 position;
+    float3 normal;
+    float2 uv;
 };
 
-static const uint kIndices[36] = {
-    0, 1, 2, 0, 2, 3, // -Z
-    4, 6, 5, 4, 7, 6, // +Z
-    0, 3, 7, 0, 7, 4, // -X
-    1, 5, 6, 1, 6, 2, // +X
-    0, 4, 5, 0, 5, 1, // -Y
-    3, 2, 6, 3, 6, 7, // +Y
-};
+// the engine-wide bindless set: binding 1 = storage buffers
+[[vk::binding(1, 0)]]
+StructuredBuffer<Vertex, ScalarDataLayout> gVertexBuffers[];
 
 struct PushConstants
 {
     column_major float4x4 mvp; // matches glm's column-major storage
     float4 tint;
+    uint vertexBufferSlot;
+    uint baseVertex;
 };
 
 [[vk::push_constant]]
@@ -36,11 +30,11 @@ struct VSOutput
 [shader("vertex")]
 VSOutput vsMain(uint vertexId : SV_VertexID)
 {
-    const float3 pos = kCorners[kIndices[vertexId]];
+    const Vertex v = gVertexBuffers[gPush.vertexBufferSlot][gPush.baseVertex + vertexId];
 
     VSOutput output;
-    output.position = mul(gPush.mvp, float4(pos, 1.0));
-    output.color = pos + 0.5;
+    output.position = mul(gPush.mvp, float4(v.position, 1.0));
+    output.color = v.position + 0.5;
     return output;
 }
 

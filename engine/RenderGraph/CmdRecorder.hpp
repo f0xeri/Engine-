@@ -16,10 +16,12 @@ public:
     explicit CmdRecorder(vk::CommandBuffer cmd);
 
     void bindPipeline(const GPU::Pipeline& pipeline);
+    void bindIndexBuffer(vk::Buffer buffer);
     void draw(uint32_t vertexCount,
               uint32_t instanceCount = 1,
               uint32_t firstVertex = 0,
               uint32_t firstInstance = 0);
+    void drawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t instanceCount = 1);
 
     template <typename T>
     void pushConstants(const T& data)

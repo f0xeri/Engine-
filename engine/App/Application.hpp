@@ -7,8 +7,10 @@
 #include "engine/GPU/VulkanContext.hpp"
 #include "engine/GPU/Swapchain.hpp"
 #include "engine/GPU/PipelineFactory.hpp"
+#include "engine/Asset/GeometryPool.hpp"
 #include "engine/GPU/BindlessRegistry.hpp"
 #include "engine/GPU/FrameContext.hpp"
+#include "engine/GPU/UploadContext.hpp"
 #include "engine/RenderGraph/RenderGraph.hpp"
 #include "engine/Renderer/PipelineRegistry.hpp"
 
@@ -43,6 +45,8 @@ public:
     Renderer::PipelineHandle loadPipeline(std::string module);
     GPU::Pipeline pipeline(Renderer::PipelineHandle handle) const;
 
+    Asset::GeometryPool& geometry() { return _geometry; }
+
 private:
     void resize();
 
@@ -52,6 +56,8 @@ private:
     GPU::FrameContext _frames;
     GPU::BindlessRegistry _bindless;
     GPU::PipelineFactory _pipelines;
+    GPU::UploadContext _uploader;
+    Asset::GeometryPool _geometry;
     Graph::RenderGraph _graph; // destroyed after _registry's waitIdle
     Renderer::PipelineRegistry _registry;
 

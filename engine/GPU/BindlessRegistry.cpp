@@ -1,6 +1,7 @@
 #include "engine/GPU/BindlessRegistry.hpp"
 
 #include "engine/Core/Log.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <cstdlib>
 
@@ -108,5 +109,4 @@ uint32_t BindlessRegistry::registerBuffer(vk::Buffer buffer)
         {});
     return slot;
 }
-
 } // namespace GPU
