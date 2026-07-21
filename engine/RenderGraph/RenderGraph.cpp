@@ -1,14 +1,13 @@
 #include "engine/RenderGraph/RenderGraph.hpp"
 
 #include "engine/Core/Log.hpp"
+#include "engine/GPU/BindlessRegistry.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <cassert>
 #include <cstdlib>
 
 namespace Graph
-{
-
-namespace
 {
 
 vk::Format toVk(Format format)
@@ -17,9 +16,18 @@ vk::Format toVk(Format format)
     {
         case Format::D32:
             return vk::Format::eD32Sfloat;
+        case Format::RGBA8_Srgb:
+            return vk::Format::eR8G8B8A8Srgb;
+        case Format::RG16F:
+            return vk::Format::eR16G16Sfloat;
+        case Format::RGBA16F:
+            return vk::Format::eR16G16B16A16Sfloat;
     }
     return vk::Format::eUndefined;
 }
+
+namespace
+{
 
 vk::AttachmentLoadOp toVk(LoadOp op)
 {
@@ -37,10 +45,17 @@ vk::AttachmentLoadOp toVk(LoadOp op)
 
 vk::ImageUsageFlags usageFor(Format format)
 {
+    // every transient may end up as a pass input (sampled read), regardless of
+    // whether this particular frame's declaration order uses it that way
     switch (format)
     {
         case Format::D32:
-            return vk::ImageUsageFlagBits::eDepthStencilAttachment;
+            return vk::ImageUsageFlagBits::eDepthStencilAttachment |
+                   vk::ImageUsageFlagBits::eSampled;
+        case Format::RGBA8_Srgb:
+        case Format::RG16F:
+        case Format::RGBA16F:
+            return vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     }
     return {};
 }
@@ -51,14 +66,19 @@ vk::ImageAspectFlags aspectFor(Format format)
     {
         case Format::D32:
             return vk::ImageAspectFlagBits::eDepth;
+        case Format::RGBA8_Srgb:
+        case Format::RG16F:
+        case Format::RGBA16F:
+            return vk::ImageAspectFlagBits::eColor;
     }
     return vk::ImageAspectFlagBits::eColor;
 }
 
 } // namespace
 
-RenderGraph::RenderGraph(GPU::VulkanContext& ctx)
+RenderGraph::RenderGraph(GPU::VulkanContext& ctx, GPU::BindlessRegistry& bindless)
     : _ctx(ctx)
+    , _bindless(bindless)
 {
 }
 
@@ -147,6 +167,18 @@ ResourceHandle RenderGraph::createTexture(const TextureDesc& desc)
     return {static_cast<uint32_t>(_resources.size() - 1)};
 }
 
+uint32_t RenderGraph::bindlessSlot(ResourceHandle handle)
+{
+    const int32_t poolIndex = _resources[handle.value].poolIndex;
+    assert(poolIndex >= 0 && "cannot use imported resource as bindless slot");
+    auto& entry = _pool[poolIndex];
+    if (entry.bindlessSlot == GPU::InvalidBindlessSlot)
+    {
+        entry.bindlessSlot = _bindless.registerTexture(entry.view);
+    }
+    return entry.bindlessSlot;
+}
+
 void RenderGraph::addPass(std::string name, PassDesc desc, std::function<void(CmdRecorder&)> record)
 {
     _passes.push_back({std::move(name), std::move(desc), std::move(record)});
@@ -176,6 +208,19 @@ void RenderGraph::execute(vk::CommandBuffer cmd)
     {
         std::vector<vk::ImageMemoryBarrier2> barriers;
         vk::Extent2D area{};
+
+        for (const ResourceHandle input : pass.desc.input)
+        {
+            Resource& res = _resources[input.value];
+            const bool isDepth = res.aspect == vk::ImageAspectFlagBits::eDepth;
+
+            barriers.push_back(transition(res,
+                                          {vk::PipelineStageFlagBits2::eFragmentShader,
+                                           vk::AccessFlagBits2::eShaderRead,
+                                           isDepth ? vk::ImageLayout::eDepthReadOnlyOptimal
+                                                   : vk::ImageLayout::eShaderReadOnlyOptimal},
+                                          false));
+        }
 
         std::vector<vk::RenderingAttachmentInfo> colorInfos;
         for (const ColorAttachment& attachment : pass.desc.color)
@@ -236,12 +281,11 @@ void RenderGraph::execute(vk::CommandBuffer cmd)
         cmd.beginRendering(vk::RenderingInfo(
             {}, {{}, area}, 1, 0, colorInfos, pass.desc.depth ? &depthInfo : nullptr));
 
-        // negative height - Y-flip (clip +Y = screen up)
         cmd.setViewport(0,
                         vk::Viewport(0.0f,
-                                     static_cast<float>(area.height),
+                                     0.0f,
                                      static_cast<float>(area.width),
-                                     -static_cast<float>(area.height),
+                                     static_cast<float>(area.height),
                                      0.0f,
                                      1.0f));
         cmd.setScissor(0, vk::Rect2D({}, area));

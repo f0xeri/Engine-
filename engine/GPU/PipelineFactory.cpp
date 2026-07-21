@@ -66,7 +66,7 @@ PipelineFactory::~PipelineFactory()
 
 vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpirv,
                                              std::span<const uint32_t> fragmentSpirv,
-                                             vk::Format colorFormat,
+                                             std::span<vk::Format> colorFormats,
                                              vk::Format depthFormat) const
 {
     const vk::ShaderModuleCreateInfo vsInfo({}, vertexSpirv.size_bytes(), vertexSpirv.data());
@@ -97,8 +97,11 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
     blendAttachment.colorWriteMask =
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+
+    const std::vector<vk::PipelineColorBlendAttachmentState> blendAttachments(colorFormats.size(),
+                                                                              blendAttachment);
     const vk::PipelineColorBlendStateCreateInfo blend(
-        {}, vk::False, vk::LogicOp::eCopy, blendAttachment);
+        {}, vk::False, vk::LogicOp::eCopy, blendAttachments);
 
     const vk::DynamicState dynamicStates[] = {vk::DynamicState::eViewport,
                                               vk::DynamicState::eScissor};
@@ -112,7 +115,7 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
         depthStencil.depthCompareOp = vk::CompareOp::eGreater; // reversed-Z
     }
 
-    const vk::PipelineRenderingCreateInfo rendering(0, colorFormat, depthFormat);
+    const vk::PipelineRenderingCreateInfo rendering(0, colorFormats, depthFormat);
 
     vk::GraphicsPipelineCreateInfo info;
     info.pNext = &rendering;

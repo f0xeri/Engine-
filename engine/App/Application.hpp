@@ -16,6 +16,7 @@
 #include "engine/Renderer/PipelineRegistry.hpp"
 
 #include <functional>
+#include <span>
 
 namespace App
 {
@@ -44,6 +45,8 @@ public:
     void setRelativeMouseMode(bool enabled);
 
     Renderer::PipelineHandle loadPipeline(std::string module);
+    Renderer::PipelineHandle loadPipeline(std::string module,
+                                          std::span<const Graph::Format> colorFormats);
     GPU::Pipeline pipeline(Renderer::PipelineHandle handle) const;
 
     Asset::GeometryPool& geometry() { return _geometry; }

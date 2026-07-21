@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/GPU/BindlessRegistry.hpp"
 #include "engine/GPU/VulkanContext.hpp"
 #include "engine/Platform/Extent2D.hpp"
 #include "engine/RenderGraph/CmdRecorder.hpp"
@@ -17,7 +18,12 @@ namespace Graph
 enum class Format : uint8_t
 {
     D32,
+    RGBA8_Srgb,
+    RG16F,
+    RGBA16F
 };
+
+vk::Format toVk(Format format);
 
 enum class LoadOp : uint8_t
 {
@@ -54,6 +60,7 @@ struct DepthAttachment
 
 struct PassDesc
 {
+    std::vector<ResourceHandle> input = {};
     std::vector<ColorAttachment> color = {};
     std::optional<DepthAttachment> depth = {};
 };
@@ -63,7 +70,7 @@ struct PassDesc
 class RenderGraph
 {
 public:
-    explicit RenderGraph(GPU::VulkanContext& ctx);
+    RenderGraph(GPU::VulkanContext& ctx, GPU::BindlessRegistry& bindless);
     ~RenderGraph();
 
     RenderGraph(const RenderGraph&) = delete;
@@ -71,6 +78,9 @@ public:
 
     ResourceHandle importBackbuffer(vk::Image image, vk::ImageView view, vk::Extent2D extent);
     ResourceHandle createTexture(const TextureDesc& desc);
+
+    // register bindless slot or return existing
+    uint32_t bindlessSlot(ResourceHandle handle);
 
     void addPass(std::string name, PassDesc desc, std::function<void(CmdRecorder&)> record);
     void execute(vk::CommandBuffer cmd);
@@ -95,6 +105,7 @@ private:
         VmaAllocation allocation = nullptr;
         Sync sync{}; // survives in _pool across frames: source scope of the first-use barrier
         bool usedThisFrame = false;
+        uint32_t bindlessSlot = GPU::InvalidBindlessSlot;
     };
 
     struct Resource
@@ -120,6 +131,7 @@ private:
     vk::ImageMemoryBarrier2 transition(Resource& res, const Sync& next, bool discard);
 
     GPU::VulkanContext& _ctx;
+    GPU::BindlessRegistry& _bindless;
 
     std::vector<PoolEntry> _pool;
     std::vector<Resource> _resources; // frame-local

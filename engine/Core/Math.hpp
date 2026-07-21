@@ -10,14 +10,14 @@
 
 namespace Core
 {
-// vulkan-friendly perspective. reversed-Z, +Y up, -Z forward (Y flip in viewport)
+// vulkan-friendly perspective. reversed-Z, +Y up, -Z forward (m[1][1] flips clip Y)
 inline glm::mat4 perspective(float fovY, float aspect, float nearPlane)
 {
     const float f = 1.0f / std::tan(fovY * 0.5f);
 
     glm::mat4 m(0.0f);
     m[0][0] = f / aspect;
-    m[1][1] = f;
+    m[1][1] = -f;
     m[2][3] = -1.0f;
     m[3][2] = nearPlane;
     return m;

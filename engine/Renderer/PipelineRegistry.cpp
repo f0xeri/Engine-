@@ -33,7 +33,8 @@ PipelineRegistry::~PipelineRegistry()
     }
 }
 
-PipelineHandle PipelineRegistry::load(std::string module, vk::Format colorFormat,
+PipelineHandle PipelineRegistry::load(std::string module,
+                                      std::span<vk::Format> colorFormats,
                                       vk::Format depthFormat)
 {
     const auto index = static_cast<uint32_t>(_table.size());
@@ -45,20 +46,20 @@ PipelineHandle PipelineRegistry::load(std::string module, vk::Format colorFormat
     _shaders->load(
         std::move(module),
         // onCompiled
-        [this, colorFormat, depthFormat,
-         initial = std::move(initial)](const Shader::SpirvBlobs& spirv) mutable
+        [this, colorFormats, depthFormat, initial = std::move(initial)](
+            const Shader::SpirvBlobs& spirv) mutable
         {
             const auto pipeline =
-                _factory.createGraphics(spirv.vertex, spirv.fragment, colorFormat, depthFormat);
+                _factory.createGraphics(spirv.vertex, spirv.fragment, colorFormats, depthFormat);
 
             initial->set_value(pipeline);
             initial.reset();
         },
         // onRecompiled (hot reload)
-        [this, index, colorFormat, depthFormat](const Shader::SpirvBlobs& spirv)
+        [this, index, colorFormats, depthFormat](const Shader::SpirvBlobs& spirv)
         {
             const auto pipeline =
-                _factory.createGraphics(spirv.vertex, spirv.fragment, colorFormat, depthFormat);
+                _factory.createGraphics(spirv.vertex, spirv.fragment, colorFormats, depthFormat);
 
             std::lock_guard lock(_mutex);
             _rebuilt.emplace_back(index, pipeline);

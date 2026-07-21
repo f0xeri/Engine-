@@ -36,7 +36,8 @@ public:
     PipelineRegistry& operator=(const PipelineRegistry&) = delete;
 
     // blocks until the pipeline is built (startup only)
-    PipelineHandle load(std::string module, vk::Format colorFormat, vk::Format depthFormat);
+    PipelineHandle
+    load(std::string module, std::span<vk::Format> colorFormats, vk::Format depthFormat);
 
     GPU::Pipeline get(PipelineHandle handle) const
     {

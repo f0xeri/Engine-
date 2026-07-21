@@ -6,7 +6,7 @@
 
 namespace GPU
 {
-
+constexpr uint32_t InvalidBindlessSlot = -1;
 // The single engine-wide descriptor set
 // unbounded texture/buffer arrays indexed from shaders
 class BindlessRegistry

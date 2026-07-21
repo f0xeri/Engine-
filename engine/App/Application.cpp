@@ -1,5 +1,6 @@
 #include "Application.hpp"
 #include "engine/GPU/Pipeline.hpp"
+#include "engine/RenderGraph/RenderGraph.hpp"
 
 #include <chrono>
 
@@ -15,7 +16,7 @@ Application::Application(const Config& config)
     , _uploader(_gpuContext)
     , _geometry(_gpuContext, _bindless, _uploader)
     , _assets(_gpuContext, _bindless, _uploader, _geometry)
-    , _graph(_gpuContext)
+    , _graph(_gpuContext, _bindless)
     , _registry(_gpuContext, _pipelines, config.shaderRoot)
 {
 }
@@ -82,7 +83,17 @@ void Application::setRelativeMouseMode(bool enabled)
 
 Renderer::PipelineHandle Application::loadPipeline(std::string module)
 {
-    return _registry.load(std::move(module), _swapchain.format(), vk::Format::eD32Sfloat);
+    std::array colorFormats{_swapchain.format()};
+    return _registry.load(std::move(module), colorFormats, vk::Format::eD32Sfloat);
+}
+
+Renderer::PipelineHandle Application::loadPipeline(std::string module,
+                                                   std::span<const Graph::Format> colorFormats)
+{
+    std::vector<vk::Format> vkFormats(colorFormats.size());
+    std::ranges::transform(
+        colorFormats, vkFormats.begin(), [](Graph::Format f) { return Graph::toVk(f); });
+    return _registry.load(std::move(module), vkFormats, vk::Format::eD32Sfloat);
 }
 
 GPU::Pipeline Application::pipeline(Renderer::PipelineHandle handle) const
