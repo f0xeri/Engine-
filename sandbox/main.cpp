@@ -93,8 +93,9 @@ int main()
 
             graph.addPass(
                 "lighting",
+                // fullscreen triangle overwrites every pixel - DontCare, not Clear
                 {.input = {albedo, normal, depth},
-                 .color = {{frame.backbuffer, Graph::LoadOp::Clear, {0.05f, 0.05f, 0.08f, 1.0f}}}},
+                 .color = {{frame.backbuffer, Graph::LoadOp::DontCare}}},
                 [&, albedo, normal, depth](Graph::CmdRecorder& rec)
                 {
                     rec.bindPipeline(app.pipeline(lightingPipeline));

@@ -28,12 +28,19 @@ VSOutput vsMain(uint vertexId : SV_VertexID)
     return output;
 }
 
+static const float3 BackgroundColor = float3(0.05, 0.05, 0.08);
+
 [shader("fragment")]
 float4 fsMain(VSOutput input) : SV_Target
 {
+    const float depth = gTextures[gPush.depthSlot].Sample(input.uv).r;
+    if (depth <= 0.0)
+    {
+        return float4(BackgroundColor, 1.0);
+    }
+
     const float4 albedo = gTextures[gPush.albedoTexture].Sample(input.uv);
     const float3 normal = gTextures[gPush.normalTexture].Sample(input.uv).xyz;
-    const float depth = gTextures[gPush.depthSlot].Sample(input.uv).r;
 
     float4 world = float4(input.uv * 2.0 - 1.0, depth, 1.0);
     world = mul(gPush.invViewProj, world);
