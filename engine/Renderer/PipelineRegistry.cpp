@@ -38,6 +38,7 @@ PipelineHandle PipelineRegistry::load(std::string module,
                                       vk::Format depthFormat)
 {
     const auto index = static_cast<uint32_t>(_table.size());
+    _names.push_back(module);
 
     auto initial = std::make_shared<std::promise<vk::Pipeline>>();
     std::future<vk::Pipeline> future = initial->get_future();

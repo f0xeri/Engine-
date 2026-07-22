@@ -12,7 +12,6 @@ namespace
 
 constexpr vk::Format PreferredFormat = vk::Format::eB8G8R8A8Srgb;
 constexpr vk::ColorSpaceKHR PreferredColorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
-constexpr vk::PresentModeKHR PresentMode = vk::PresentModeKHR::eFifo;
 
 vk::SurfaceFormatKHR pickFormat(const std::vector<vk::SurfaceFormatKHR>& available)
 {
@@ -81,6 +80,35 @@ void Swapchain::recreate(Platform::Extent2D extent)
     }
 }
 
+void Swapchain::setVsync(bool enabled)
+{
+    if (enabled)
+    {
+        _presentMode = vk::PresentModeKHR::eFifo;
+    }
+    else
+    {
+        const auto available = _ctx.physicalDevice.getSurfacePresentModesKHR(_ctx.surface);
+        _presentMode = vk::PresentModeKHR::eFifo; // only guaranteed mode - fallback
+        for (const auto preferred :
+             {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eImmediate})
+        {
+            if (std::ranges::find(available, preferred) != available.end())
+            {
+                _presentMode = preferred;
+                break;
+            }
+        }
+        if (_presentMode == vk::PresentModeKHR::eFifo)
+        {
+            LOG_WARN(Vulkan, "vsync-off requested but only FIFO is supported");
+        }
+    }
+
+    recreate({_extent.width, _extent.height});
+    LOG_INFO(Vulkan, "present mode: {}", vk::to_string(_presentMode));
+}
+
 void Swapchain::create(Platform::Extent2D extent, vk::SwapchainKHR oldSwapchain)
 {
     const auto caps = _ctx.physicalDevice.getSurfaceCapabilitiesKHR(_ctx.surface);
@@ -107,7 +135,7 @@ void Swapchain::create(Platform::Extent2D extent, vk::SwapchainKHR oldSwapchain)
                                           {},
                                           caps.currentTransform,
                                           vk::CompositeAlphaFlagBitsKHR::eOpaque,
-                                          PresentMode,
+                                          _presentMode,
                                           vk::True,
                                           oldSwapchain);
 

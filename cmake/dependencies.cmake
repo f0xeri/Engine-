@@ -90,3 +90,21 @@ FetchContent_MakeAvailable(SDL3 VulkanHeaders VulkanMemoryAllocator glm imgui sl
 
 # The prebuilt slang package ships its own CMake config (imported target slang::slang).
 find_package(slang REQUIRED CONFIG NO_DEFAULT_PATH PATHS "${slang_SOURCE_DIR}/cmake")
+
+# imgui ships no CMakeLists; core + SDL3/Vulkan backends only
+add_library(imgui STATIC
+    "${imgui_SOURCE_DIR}/imgui.cpp"
+    "${imgui_SOURCE_DIR}/imgui_draw.cpp"
+    "${imgui_SOURCE_DIR}/imgui_tables.cpp"
+    "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
+)
+target_include_directories(imgui SYSTEM PUBLIC
+    "${imgui_SOURCE_DIR}"
+    "${imgui_SOURCE_DIR}/backends"
+)
+
+target_compile_definitions(imgui PUBLIC VK_NO_PROTOTYPES)
+target_link_libraries(imgui PUBLIC SDL3::SDL3 Vulkan::Headers)
+add_library(imgui::imgui ALIAS imgui)

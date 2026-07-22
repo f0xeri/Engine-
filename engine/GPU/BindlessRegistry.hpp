@@ -12,6 +12,15 @@ constexpr uint32_t InvalidBindlessSlot = -1;
 class BindlessRegistry
 {
 public:
+    static constexpr uint32_t MaxTextures = 16384;
+    static constexpr uint32_t MaxBuffers = 16384;
+
+    struct Stats
+    {
+        uint32_t usedTextures;
+        uint32_t usedBuffers;
+    };
+
     explicit BindlessRegistry(VulkanContext& ctx);
     ~BindlessRegistry();
 
@@ -24,6 +33,7 @@ public:
 
     vk::DescriptorSetLayout setLayout() const { return _layout; }
     vk::DescriptorSet set() const { return _set; }
+    Stats stats() const { return {_nextTexture, _nextBuffer}; }
 
 private:
     VulkanContext& _ctx;

@@ -19,6 +19,8 @@ add_library(engine STATIC
     Renderer/PipelineRegistry.cpp
     App/Application.cpp
     App/FlyCamera.cpp
+    App/ImGuiLayer.cpp
+    App/DebugOverlay.cpp
 )
 
 target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR})
@@ -38,4 +40,5 @@ target_link_libraries(engine
         slang::slang
         single_headers
         engine_warnings
+        imgui::imgui
 )

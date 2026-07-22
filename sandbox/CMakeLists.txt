@@ -1,6 +1,6 @@
 add_executable(sandbox main.cpp)
 
-target_link_libraries(sandbox PRIVATE engine engine_warnings)
+target_link_libraries(sandbox PRIVATE engine engine_warnings imgui::imgui)
 
 target_compile_definitions(sandbox PRIVATE
     ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/assets/shaders"

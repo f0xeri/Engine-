@@ -10,9 +10,6 @@ namespace Asset
 namespace
 {
 
-constexpr uint32_t MaxVertices = (64u << 20) / sizeof(Vertex);  // 64 MiB
-constexpr uint32_t MaxIndices = (32u << 20) / sizeof(uint32_t); // 32 MiB
-
 vk::Buffer createDeviceLocal(GPU::VulkanContext& ctx,
                              vk::DeviceSize size,
                              vk::BufferUsageFlags usage,

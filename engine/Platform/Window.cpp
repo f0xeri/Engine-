@@ -57,13 +57,17 @@ Window::~Window()
     SDL_Quit();
 }
 
-bool Window::pumpEvents()
+bool Window::pumpEvents(const std::function<void(const SDL_Event&)>& onEvent)
 {
     _input.beginFrame();
 
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
+        if (onEvent)
+        {
+            onEvent(event);
+        }
         if (event.type == SDL_EVENT_QUIT)
         {
             _shouldClose = true;

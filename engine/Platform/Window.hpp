@@ -4,6 +4,7 @@
 #include "engine/Platform/Input.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <span>
 
 #include <vulkan/vulkan.hpp>
@@ -31,7 +32,7 @@ public:
     Window& operator=(const Window&) = delete;
 
     // Drains the event queue into the input state. Returns false once the user asked to close.
-    bool pumpEvents();
+    bool pumpEvents(const std::function<void(const SDL_Event&)>& onEvent = {});
 
     const Input& input() const { return _input; }
 
@@ -41,6 +42,8 @@ public:
     Extent2D framebufferSize() const;
     bool minimized() const;
     const char* getTitle() const;
+
+    SDL_Window* nativeHandle() const { return _window; }
 
     // ---vulkan related---
     static std::span<const char* const> requiredInstanceExtensions();

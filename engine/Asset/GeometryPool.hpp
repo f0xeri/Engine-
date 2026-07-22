@@ -22,6 +22,15 @@ struct MeshRange
 class GeometryPool
 {
 public:
+    static constexpr uint32_t MaxVertices = (64u << 20) / sizeof(Vertex);  // 64 MiB
+    static constexpr uint32_t MaxIndices = (32u << 20) / sizeof(uint32_t); // 32 MiB
+
+    struct Stats
+    {
+        uint32_t usedVertices;
+        uint32_t usedIndices;
+    };
+
     GeometryPool(GPU::VulkanContext& ctx,
                  GPU::BindlessRegistry& bindless,
                  GPU::UploadContext& uploader);
@@ -35,6 +44,7 @@ public:
 
     uint32_t vertexBufferSlot() const { return _vertexSlot; } // bindless SSBO slot
     vk::Buffer indexBuffer() const { return _indexBuffer; }
+    Stats stats() const { return {_vertexCount, _indexCount}; }
 
 private:
     GPU::VulkanContext& _ctx;

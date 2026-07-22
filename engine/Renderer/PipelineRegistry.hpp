@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,11 +49,14 @@ public:
     // begin(frameIndex)'s fence wait; call once per frame after begin()
     void update(uint64_t frameIndex);
 
+    std::span<const std::string> loadedModules() const { return _names; }
+
 private:
     GPU::VulkanContext& _ctx;
     GPU::PipelineFactory& _factory;
 
     std::vector<vk::Pipeline> _table; // main thread only
+    std::vector<std::string> _names;  // parallel to _table, for debug UI
 
     std::mutex _mutex;
     std::vector<std::pair<uint32_t, vk::Pipeline>> _rebuilt; // worker -> main

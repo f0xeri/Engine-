@@ -1,4 +1,5 @@
 #include "Application.hpp"
+#include "engine/App/DebugOverlay.hpp"
 #include "engine/GPU/Pipeline.hpp"
 #include "engine/RenderGraph/RenderGraph.hpp"
 
@@ -17,6 +18,7 @@ Application::Application(const Config& config)
     , _geometry(_gpuContext, _bindless, _uploader)
     , _assets(_gpuContext, _bindless, _uploader, _geometry)
     , _graph(_gpuContext, _bindless)
+    , _imgui(_gpuContext, _window, _swapchain.format(), _swapchain.imageCount())
     , _registry(_gpuContext, _pipelines, config.shaderRoot)
 {
 }
@@ -24,9 +26,10 @@ Application::Application(const Config& config)
 void Application::run(const std::function<void(const FrameInfo&)>& tick)
 {
     bool resizeRequested = false;
+    bool vsyncEnabled = _swapchain.vsyncEnabled();
     auto last = std::chrono::steady_clock::now();
 
-    while (!_quit && _window.pumpEvents())
+    while (!_quit && _window.pumpEvents([this](const SDL_Event& e) { _imgui.processEvent(e); }))
     {
         const auto now = std::chrono::steady_clock::now();
         const float dt = std::chrono::duration<float>(now - last).count();
@@ -45,6 +48,12 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
         {
             resize();
             resizeRequested = false;
+        }
+
+        if (vsyncEnabled != _swapchain.vsyncEnabled())
+        {
+            _gpuContext.device.waitIdle();
+            _swapchain.setVsync(vsyncEnabled);
         }
 
         auto imageIndex = _swapchain.acquire(frame.acquireSemaphore);
@@ -68,7 +77,14 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
         const Graph::ResourceHandle backbuffer = _graph.importBackbuffer(
             _swapchain.image(*imageIndex), _swapchain.imageView(*imageIndex), extent);
 
+        _imgui.newFrame();
+        _debugOverlay.draw(_bindless, _geometry, _registry, vsyncEnabled, _debugTabName, _debugTabDraw);
         tick({_graph, backbuffer, {extent.width, extent.height}, _window.input(), dt});
+
+        _graph.addPass("imgui-overlay",
+                       {.color = {{backbuffer, Graph::LoadOp::Load}}},
+                       [this](Graph::CmdRecorder& rec) { _imgui.render(rec.raw()); });
+
         _graph.execute(frame.cmd);
 
         _frames.submit(_swapchain.renderFinished(*imageIndex));
@@ -79,6 +95,12 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
 void Application::setRelativeMouseMode(bool enabled)
 {
     _window.setRelativeMouseMode(enabled);
+}
+
+void Application::setDebugTab(std::string name, std::function<void()> draw)
+{
+    _debugTabName = std::move(name);
+    _debugTabDraw = std::move(draw);
 }
 
 Renderer::PipelineHandle Application::loadPipeline(std::string module)

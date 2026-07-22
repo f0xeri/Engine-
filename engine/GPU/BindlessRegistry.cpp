@@ -11,10 +11,6 @@ namespace GPU
 namespace
 {
 
-// capacities
-constexpr uint32_t MaxTextures = 16384;
-constexpr uint32_t MaxBuffers = 16384;
-
 constexpr uint32_t TextureBinding = 0;
 constexpr uint32_t BufferBinding = 1;
 

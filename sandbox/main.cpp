@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <glm/matrix.hpp>
+#include <imgui.h>
 
 namespace
 {
@@ -25,7 +26,7 @@ struct PushConstants
 struct LightingParams
 {
     glm::mat4 invViewProj;
-    glm::vec3 sunDir = {0.4, 1.0, 0.3};
+    glm::vec3 sunDir;
     uint32_t albedoTexture;
     uint32_t normalTexture;
     uint32_t depthSlot;
@@ -46,6 +47,10 @@ int main()
                                                    "2.0/Sponza/glTF/Sponza.gltf");
 
     App::FlyCamera camera;
+    glm::vec3 sunDir = {0.4f, 1.0f, 0.3f};
+
+    app.setDebugTab("Sandbox",
+                    [&] { ImGui::SliderFloat3("Sun direction", &sunDir.x, -1.0f, 1.0f); });
 
     app.run(
         [&](const App::FrameInfo& frame)
@@ -91,20 +96,21 @@ int main()
                     }
                 });
 
-            graph.addPass(
-                "lighting",
-                // fullscreen triangle overwrites every pixel - DontCare, not Clear
-                {.input = {albedo, normal, depth},
-                 .color = {{frame.backbuffer, Graph::LoadOp::DontCare}}},
-                [&, albedo, normal, depth](Graph::CmdRecorder& rec)
-                {
-                    rec.bindPipeline(app.pipeline(lightingPipeline));
-                    rec.pushConstants(LightingParams{.invViewProj = glm::inverse(viewProj),
-                                                     .albedoTexture = graph.bindlessSlot(albedo),
-                                                     .normalTexture = graph.bindlessSlot(normal),
-                                                     .depthSlot = graph.bindlessSlot(depth)});
-                    rec.draw(3);
-                });
+            graph.addPass("lighting",
+                          // fullscreen triangle overwrites every pixel - DontCare, not Clear
+                          {.input = {albedo, normal, depth},
+                           .color = {{frame.backbuffer, Graph::LoadOp::DontCare}}},
+                          [&, albedo, normal, depth](Graph::CmdRecorder& rec)
+                          {
+                              rec.bindPipeline(app.pipeline(lightingPipeline));
+                              rec.pushConstants(
+                                  LightingParams{.invViewProj = glm::inverse(viewProj),
+                                                 .sunDir = sunDir,
+                                                 .albedoTexture = graph.bindlessSlot(albedo),
+                                                 .normalTexture = graph.bindlessSlot(normal),
+                                                 .depthSlot = graph.bindlessSlot(depth)});
+                              rec.draw(3);
+                          });
         });
 
     return 0;
