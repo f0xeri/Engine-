@@ -4,8 +4,16 @@ Sampler2D gTextures[];
 struct PushConstants
 {
     column_major float4x4 invViewProj; // matches glm's column-major storage
+
     float3 sunDir;
     uint albedoTexture;
+
+    float3 sunColor;
+    float sunIntensity;
+
+    float3 ambientColor;
+    float ambientIntensity;
+
     uint normalTexture;
     uint depthSlot;
 };
@@ -28,7 +36,7 @@ VSOutput vsMain(uint vertexId : SV_VertexID)
     return output;
 }
 
-static const float3 BackgroundColor = float3(0.05, 0.05, 0.08);
+static const float3 BackgroundColor = float3(0.7, 1.1, 2.0);
 
 [shader("fragment")]
 float4 fsMain(VSOutput input) : SV_Target
@@ -47,6 +55,10 @@ float4 fsMain(VSOutput input) : SV_Target
     world /= world.w;
 
     const float3 sun = normalize(gPush.sunDir);
-    const float light = 0.25 + (0.75 * max(0.0, dot(normal, sun)));
+    const float NdotL = max(0.0, dot(normal, sun));
+
+    const float3 light =
+        (gPush.sunColor * gPush.sunIntensity * NdotL) + (gPush.ambientColor * gPush.ambientIntensity);
+
     return float4(albedo.rgb * light, 1.0);
 }
