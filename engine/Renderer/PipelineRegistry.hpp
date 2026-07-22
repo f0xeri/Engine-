@@ -38,7 +38,7 @@ public:
 
     // blocks until the pipeline is built (startup only)
     PipelineHandle
-    load(std::string module, std::span<vk::Format> colorFormats, vk::Format depthFormat);
+    load(std::string module, std::span<const vk::Format> colorFormats, vk::Format depthFormat);
 
     GPU::Pipeline get(PipelineHandle handle) const
     {

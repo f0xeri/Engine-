@@ -23,7 +23,7 @@ public:
     // depthFormat eUndefined = no depth attachment, depth test off
     vk::Pipeline createGraphics(std::span<const uint32_t> vertexSpirv,
                                 std::span<const uint32_t> fragmentSpirv,
-                                std::span<vk::Format> colorFormats,
+                                std::span<const vk::Format> colorFormats,
                                 vk::Format depthFormat) const;
 
     vk::PipelineLayout layout() const { return _layout; }

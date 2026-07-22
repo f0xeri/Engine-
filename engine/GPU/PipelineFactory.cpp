@@ -66,7 +66,7 @@ PipelineFactory::~PipelineFactory()
 
 vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpirv,
                                              std::span<const uint32_t> fragmentSpirv,
-                                             std::span<vk::Format> colorFormats,
+                                             std::span<const vk::Format> colorFormats,
                                              vk::Format depthFormat) const
 {
     const vk::ShaderModuleCreateInfo vsInfo({}, vertexSpirv.size_bytes(), vertexSpirv.data());
