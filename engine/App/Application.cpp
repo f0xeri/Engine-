@@ -78,14 +78,15 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
             _swapchain.image(*imageIndex), _swapchain.imageView(*imageIndex), extent);
 
         _imgui.newFrame();
-        _debugOverlay.draw(_bindless, _geometry, _registry, vsyncEnabled, _debugTabName, _debugTabDraw);
+        _debugOverlay.draw(
+            _bindless, _geometry, _graph, vsyncEnabled, _debugTabName, _debugTabDraw);
         tick({_graph, backbuffer, {extent.width, extent.height}, _window.input(), dt});
 
         _graph.addPass("imgui-overlay",
                        {.color = {{backbuffer, Graph::LoadOp::Load}}},
                        [this](Graph::CmdRecorder& rec) { _imgui.render(rec.raw()); });
 
-        _graph.execute(frame.cmd);
+        _graph.execute(frame.cmd, frame.index);
 
         _frames.submit(_swapchain.renderFinished(*imageIndex));
         resizeRequested = !_swapchain.present(*imageIndex);

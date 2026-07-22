@@ -7,7 +7,7 @@ namespace App
 
 void DebugOverlay::draw(const GPU::BindlessRegistry& bindless,
                         const Asset::GeometryPool& geometry,
-                        const Renderer::PipelineRegistry& pipelines,
+                        const Graph::RenderGraph& graph,
                         bool& vsyncEnabled,
                         const std::string& extraTabName,
                         const std::function<void()>& extraTabDraw)
@@ -40,6 +40,15 @@ void DebugOverlay::draw(const GPU::BindlessRegistry& bindless,
         }
 
         ImGui::Separator();
+        float gpuTotalMs = 0.0f;
+        for (const GPU::GpuProfiler::Scope& scope : graph.timings())
+        {
+            ImGui::Text("%-16s %6.3f ms", scope.name.c_str(), scope.ms);
+            gpuTotalMs += scope.ms;
+        }
+        ImGui::Text("%-16s %6.3f ms", "GPU total", gpuTotalMs);
+
+        ImGui::Separator();
         const GPU::BindlessRegistry::Stats bindlessStats = bindless.stats();
         ImGui::Text("Bindless textures: %u / %u",
                     bindlessStats.usedTextures,
@@ -52,13 +61,6 @@ void DebugOverlay::draw(const GPU::BindlessRegistry& bindless,
         ImGui::Text(
             "Vertices: %u / %u", geometryStats.usedVertices, Asset::GeometryPool::MaxVertices);
         ImGui::Text("Indices: %u / %u", geometryStats.usedIndices, Asset::GeometryPool::MaxIndices);
-
-        ImGui::Separator();
-        ImGui::Text("Pipelines:");
-        for (const std::string& module : pipelines.loadedModules())
-        {
-            ImGui::BulletText("%s", module.c_str());
-        }
 
         ImGui::EndTabItem();
     }

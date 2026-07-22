@@ -54,6 +54,7 @@ uint32_t pickImageCount(const vk::SurfaceCapabilitiesKHR& caps)
 Swapchain::Swapchain(VulkanContext& ctx, Platform::Extent2D extent)
     : _ctx(ctx)
 {
+    _presentMode = pickNonVsyncPresentMode();
     create(extent, nullptr);
 }
 
@@ -80,30 +81,24 @@ void Swapchain::recreate(Platform::Extent2D extent)
     }
 }
 
+vk::PresentModeKHR Swapchain::pickNonVsyncPresentMode() const
+{
+    const auto available = _ctx.physicalDevice.getSurfacePresentModesKHR(_ctx.surface);
+    for (const auto preferred : {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eImmediate})
+    {
+        if (std::ranges::find(available, preferred) != available.end())
+        {
+            return preferred;
+        }
+    }
+
+    LOG_WARN(Vulkan, "vsync-off requested but only FIFO is supported");
+    return vk::PresentModeKHR::eFifo; // only guaranteed mode - fallback
+}
+
 void Swapchain::setVsync(bool enabled)
 {
-    if (enabled)
-    {
-        _presentMode = vk::PresentModeKHR::eFifo;
-    }
-    else
-    {
-        const auto available = _ctx.physicalDevice.getSurfacePresentModesKHR(_ctx.surface);
-        _presentMode = vk::PresentModeKHR::eFifo; // only guaranteed mode - fallback
-        for (const auto preferred :
-             {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eImmediate})
-        {
-            if (std::ranges::find(available, preferred) != available.end())
-            {
-                _presentMode = preferred;
-                break;
-            }
-        }
-        if (_presentMode == vk::PresentModeKHR::eFifo)
-        {
-            LOG_WARN(Vulkan, "vsync-off requested but only FIFO is supported");
-        }
-    }
+    _presentMode = enabled ? vk::PresentModeKHR::eFifo : pickNonVsyncPresentMode();
 
     recreate({_extent.width, _extent.height});
     LOG_INFO(Vulkan, "present mode: {}", vk::to_string(_presentMode));

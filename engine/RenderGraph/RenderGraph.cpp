@@ -79,6 +79,7 @@ vk::ImageAspectFlags aspectFor(Format format)
 RenderGraph::RenderGraph(GPU::VulkanContext& ctx, GPU::BindlessRegistry& bindless)
     : _ctx(ctx)
     , _bindless(bindless)
+    , _profiler(ctx)
 {
 }
 
@@ -200,9 +201,11 @@ vk::ImageMemoryBarrier2 RenderGraph::transition(Resource& res, const Sync& next,
     return barrier;
 }
 
-void RenderGraph::execute(vk::CommandBuffer cmd)
+void RenderGraph::execute(vk::CommandBuffer cmd, uint64_t frameIndex)
 {
     const bool debugLabels = VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBeginDebugUtilsLabelEXT != nullptr;
+
+    _profiler.beginFrame(cmd, frameIndex);
 
     for (Pass& pass : _passes)
     {
@@ -268,6 +271,9 @@ void RenderGraph::execute(vk::CommandBuffer cmd)
                                                     vk::ClearDepthStencilValue(attachment.clear));
         }
 
+        // the pass owns its barriers: they are part of what it costs
+        _profiler.beginScope(cmd, pass.name);
+
         if (!barriers.empty())
         {
             cmd.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, barriers));
@@ -299,6 +305,8 @@ void RenderGraph::execute(vk::CommandBuffer cmd)
         {
             cmd.endDebugUtilsLabelEXT();
         }
+
+        _profiler.endScope(cmd);
     }
 
     for (Resource& res : _resources)

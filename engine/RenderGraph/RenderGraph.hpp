@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/GPU/BindlessRegistry.hpp"
+#include "engine/GPU/GpuProfiler.hpp"
 #include "engine/GPU/VulkanContext.hpp"
 #include "engine/Platform/Extent2D.hpp"
 #include "engine/RenderGraph/CmdRecorder.hpp"
@@ -9,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -83,7 +85,9 @@ public:
     uint32_t bindlessSlot(ResourceHandle handle);
 
     void addPass(std::string name, PassDesc desc, std::function<void(CmdRecorder&)> record);
-    void execute(vk::CommandBuffer cmd);
+    void execute(vk::CommandBuffer cmd, uint64_t frameIndex);
+
+    std::span<const GPU::GpuProfiler::Scope> timings() const { return _profiler.scopes(); }
 
     // frees pooled textures. caller must have waited for device idle
     void trim();
@@ -132,6 +136,7 @@ private:
 
     GPU::VulkanContext& _ctx;
     GPU::BindlessRegistry& _bindless;
+    GPU::GpuProfiler _profiler;
 
     std::vector<PoolEntry> _pool;
     std::vector<Resource> _resources; // frame-local

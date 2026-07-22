@@ -43,6 +43,7 @@ public:
 private:
     void create(Platform::Extent2D extent, vk::SwapchainKHR oldSwapchain);
     void destroyImageResources();
+    vk::PresentModeKHR pickNonVsyncPresentMode() const;
 
     VulkanContext& _ctx;
 

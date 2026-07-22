@@ -11,6 +11,7 @@ add_library(engine STATIC
     GPU/BindlessRegistry.cpp
     GPU/PipelineFactory.cpp
     GPU/UploadContext.cpp
+    GPU/GpuProfiler.cpp
     Asset/GeometryPool.cpp
     Asset/Library.cpp
     Shader/ShaderSystem.cpp

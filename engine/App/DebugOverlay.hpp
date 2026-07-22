@@ -2,7 +2,7 @@
 
 #include "engine/Asset/GeometryPool.hpp"
 #include "engine/GPU/BindlessRegistry.hpp"
-#include "engine/Renderer/PipelineRegistry.hpp"
+#include "engine/RenderGraph/RenderGraph.hpp"
 
 #include <array>
 #include <functional>
@@ -15,7 +15,7 @@ class DebugOverlay
 public:
     void draw(const GPU::BindlessRegistry& bindless,
               const Asset::GeometryPool& geometry,
-              const Renderer::PipelineRegistry& pipelines,
+              const Graph::RenderGraph& graph,
               bool& vsyncEnabled, // toggled by the button; caller applies it next frame
               const std::string& extraTabName,
               const std::function<void()>& extraTabDraw);
