@@ -11,6 +11,7 @@
 #include "engine/Asset/Library.hpp"
 #include "engine/GPU/BindlessRegistry.hpp"
 #include "engine/GPU/FrameContext.hpp"
+#include "engine/GPU/FrameUniforms.hpp"
 #include "engine/GPU/UploadContext.hpp"
 #include "engine/RenderGraph/RenderGraph.hpp"
 #include "engine/Renderer/PipelineRegistry.hpp"
@@ -26,6 +27,7 @@ namespace App
 struct FrameInfo
 {
     Graph::RenderGraph& graph;
+    GPU::FrameUniforms& uniforms;
     Graph::ResourceHandle backbuffer;
     Platform::Extent2D extent;
     const Platform::Input& input;
@@ -66,6 +68,7 @@ private:
     GPU::Swapchain _swapchain;
     GPU::FrameContext _frames;
     GPU::BindlessRegistry _bindless;
+    GPU::FrameUniforms _uniforms;
     GPU::PipelineFactory _pipelines;
     GPU::UploadContext _uploader;
     Asset::GeometryPool _geometry;

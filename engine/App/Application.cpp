@@ -13,6 +13,7 @@ Application::Application(const Config& config)
     , _swapchain(_gpuContext, _window.framebufferSize())
     , _frames(_gpuContext)
     , _bindless(_gpuContext)
+    , _uniforms(_gpuContext, _bindless)
     , _pipelines(_gpuContext, _bindless.setLayout(), config.pipelineCache)
     , _uploader(_gpuContext)
     , _geometry(_gpuContext, _bindless, _uploader)
@@ -43,6 +44,7 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
         const GPU::Frame frame = _frames.begin();
 
         _registry.update(frame.index);
+        _uniforms.beginFrame(frame.index); // safe to rewind: begin() waited this slot's fence
 
         if (resizeRequested)
         {
@@ -80,7 +82,7 @@ void Application::run(const std::function<void(const FrameInfo&)>& tick)
         _imgui.newFrame();
         _debugOverlay.draw(
             _bindless, _geometry, _graph, vsyncEnabled, _debugTabName, _debugTabDraw);
-        tick({_graph, backbuffer, {extent.width, extent.height}, _window.input(), dt});
+        tick({_graph, _uniforms, backbuffer, {extent.width, extent.height}, _window.input(), dt});
 
         _graph.addPass("imgui-overlay",
                        {.color = {{backbuffer, Graph::LoadOp::Load}}},

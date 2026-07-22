@@ -23,4 +23,18 @@ inline glm::mat4 perspective(float fovY, float aspect, float nearPlane)
     return m;
 }
 
+// vulkan-friendly orthographic, centered. reversed-Z like perspective, so GREATER holds
+inline glm::mat4 orthographic(float halfWidth, float halfHeight, float nearPlane, float farPlane)
+{
+    const float range = farPlane - nearPlane;
+
+    glm::mat4 m(0.0f);
+    m[0][0] = 1.0f / halfWidth;
+    m[1][1] = -1.0f / halfHeight;
+    m[2][2] = 1.0f / range;
+    m[3][2] = farPlane / range;
+    m[3][3] = 1.0f;
+    return m;
+}
+
 } // namespace Core

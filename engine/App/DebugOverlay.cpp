@@ -172,6 +172,9 @@ void DebugOverlay::drawPools(const GPU::BindlessRegistry& bindless,
     const GPU::BindlessRegistry::Stats bindlessStats = bindless.stats();
     poolBar("Textures", bindlessStats.usedTextures, GPU::BindlessRegistry::MaxTextures);
     poolBar("Buffers", bindlessStats.usedBuffers, GPU::BindlessRegistry::MaxBuffers);
+    poolBar("Shadow maps",
+            bindlessStats.usedShadowTextures,
+            GPU::BindlessRegistry::MaxShadowTextures);
 
     const Asset::GeometryPool::Stats geometryStats = geometry.stats();
     poolBar("Vertices", geometryStats.usedVertices, Asset::GeometryPool::MaxVertices);

@@ -84,6 +84,9 @@ public:
     // register bindless slot or return existing
     uint32_t bindlessSlot(ResourceHandle handle);
 
+    // same, but for shadow binding
+    uint32_t shadowSlot(ResourceHandle handle);
+
     void addPass(std::string name, PassDesc desc, std::function<void(CmdRecorder&)> record);
     void execute(vk::CommandBuffer cmd, uint64_t frameIndex);
 
@@ -110,6 +113,7 @@ private:
         Sync sync{}; // survives in _pool across frames: source scope of the first-use barrier
         bool usedThisFrame = false;
         uint32_t bindlessSlot = GPU::InvalidBindlessSlot;
+        uint32_t shadowSlot = GPU::InvalidBindlessSlot;
     };
 
     struct Resource

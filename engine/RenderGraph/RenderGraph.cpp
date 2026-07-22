@@ -180,6 +180,18 @@ uint32_t RenderGraph::bindlessSlot(ResourceHandle handle)
     return entry.bindlessSlot;
 }
 
+uint32_t RenderGraph::shadowSlot(ResourceHandle handle)
+{
+    const int32_t poolIndex = _resources[handle.value].poolIndex;
+    assert(poolIndex >= 0 && "cannot use imported resource as shadow slot");
+    auto& entry = _pool[poolIndex];
+    if (entry.shadowSlot == GPU::InvalidBindlessSlot)
+    {
+        entry.shadowSlot = _bindless.registerShadowTexture(entry.view);
+    }
+    return entry.shadowSlot;
+}
+
 void RenderGraph::addPass(std::string name, PassDesc desc, std::function<void(CmdRecorder&)> record)
 {
     _passes.push_back({std::move(name), std::move(desc), std::move(record)});
