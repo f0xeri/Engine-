@@ -24,10 +24,10 @@ public:
 
     void processEvent(const SDL_Event& event);
 
-    // call before tick() - user code may freely call ImGui:: widget functions inside tick
+    // before tick()
     void newFrame();
 
-    // call as the final pass over the swapchain image (LoadOp::Load)
+    // final pass
     void render(vk::CommandBuffer cmd);
 };
 
