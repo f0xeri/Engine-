@@ -22,6 +22,7 @@ struct Material
     float roughnessFactor;
     uint32_t albedoTexture;             // bindless slot index
     uint32_t metallicRoughnessTexture;  // glTF packs roughness in G, metallic in B
+    uint32_t normalTexture;             // tangent-space, linear
 };
 
 struct SubMesh
@@ -71,7 +72,8 @@ private:
     std::unordered_map<std::string, Model> _models;
     std::unordered_map<std::string, uint32_t> _textureSlots;
     std::vector<Texture> _textures;
-    uint32_t _whiteTexture = 0; // slot of the 1x1 fallback
+    uint32_t _whiteTexture = 0;       // slot of the 1x1 white fallback
+    uint32_t _flatNormalTexture = 0;  // slot of the 1x1 flat-normal fallback
 };
 
 } // namespace Asset

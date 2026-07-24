@@ -16,16 +16,25 @@
 namespace
 {
 
+struct ViewConstants
+{
+    glm::mat4 viewProj;
+    glm::mat4 lightViewProj;
+};
+
 struct PushConstants
 {
-    glm::mat4 mvp;
+    glm::mat4 model;
     glm::vec4 baseColorFactor;
     uint32_t vertexBufferSlot;
     uint32_t baseVertex;
     uint32_t albedoTexture;
     uint32_t metallicRoughnessTexture;
+    uint32_t normalTexture;
     float metallicFactor;
     float roughnessFactor;
+    uint32_t viewSlot;
+    uint32_t viewOffset;
 };
 
 struct LightingParams
@@ -145,10 +154,13 @@ int main()
                 Core::orthographic(shadowRadius, shadowRadius, 0.05f, shadowRadius * 3.0f) *
                 glm::lookAt(SceneCenter + (sun * shadowRadius * 1.5f), SceneCenter, up);
 
+            const GPU::FrameUniforms::Ref viewRef = frame.uniforms.push(
+                ViewConstants{.viewProj = viewProj, .lightViewProj = lightViewProj});
+
             graph.addPass(
                 "shadow",
                 {.depth = Graph::DepthAttachment{.texture = shadowMap}},
-                [&app, &sponza, shadowPipeline, lightViewProj](Graph::CmdRecorder& rec)
+                [&app, &sponza, shadowPipeline, viewRef](Graph::CmdRecorder& rec)
                 {
                     rec.bindPipeline(app.pipeline(shadowPipeline));
                     rec.bindIndexBuffer(app.geometry().indexBuffer());
@@ -156,14 +168,17 @@ int main()
                     {
                         const Asset::Material& material = sponza.materials[submesh.materialIndex];
                         rec.pushConstants(PushConstants{
-                            .mvp = lightViewProj * submesh.model,
+                            .model = submesh.model,
                             .baseColorFactor = material.baseColorFactor,
                             .vertexBufferSlot = app.geometry().vertexBufferSlot(),
                             .baseVertex = submesh.range.baseVertex,
                             .albedoTexture = material.albedoTexture,
                             .metallicRoughnessTexture = material.metallicRoughnessTexture,
+                            .normalTexture = material.normalTexture,
                             .metallicFactor = material.metallicFactor,
                             .roughnessFactor = material.roughnessFactor,
+                            .viewSlot = viewRef.slot,
+                            .viewOffset = viewRef.offset,
                         });
                         rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
                     }
@@ -173,7 +188,7 @@ int main()
                 "gbuffer",
                 {.color = {{albedo}, {normal}, {material}},
                  .depth = Graph::DepthAttachment{.texture = depth}},
-                [&app, &sponza, gbufferPipeline, viewProj](Graph::CmdRecorder& rec)
+                [&app, &sponza, gbufferPipeline, viewRef](Graph::CmdRecorder& rec)
                 {
                     rec.bindPipeline(app.pipeline(gbufferPipeline));
                     rec.bindIndexBuffer(app.geometry().indexBuffer());
@@ -182,14 +197,17 @@ int main()
                     {
                         const Asset::Material& material = sponza.materials[submesh.materialIndex];
                         rec.pushConstants(PushConstants{
-                            .mvp = viewProj * submesh.model,
+                            .model = submesh.model,
                             .baseColorFactor = material.baseColorFactor,
                             .vertexBufferSlot = app.geometry().vertexBufferSlot(),
                             .baseVertex = submesh.range.baseVertex,
                             .albedoTexture = material.albedoTexture,
                             .metallicRoughnessTexture = material.metallicRoughnessTexture,
+                            .normalTexture = material.normalTexture,
                             .metallicFactor = material.metallicFactor,
                             .roughnessFactor = material.roughnessFactor,
+                            .viewSlot = viewRef.slot,
+                            .viewOffset = viewRef.offset,
                         });
                         rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
                     }

@@ -49,6 +49,9 @@ Library::Library(GPU::VulkanContext& ctx,
 {
     const uint8_t white[4] = {255, 255, 255, 255};
     _whiteTexture = createTexture(white, 1, 1, true);
+
+    const uint8_t flatNormal[4] = {128, 128, 255, 255}; // (0,0,1) in tangent space
+    _flatNormalTexture = createTexture(flatNormal, 1, 1, false);
 }
 
 Library::~Library()
@@ -180,7 +183,8 @@ const Model& Library::load(const std::filesystem::path& path)
                         .metallicFactor = 1.0f,
                         .roughnessFactor = 1.0f,
                         .albedoTexture = _whiteTexture,
-                        .metallicRoughnessTexture = _whiteTexture};
+                        .metallicRoughnessTexture = _whiteTexture,
+                        .normalTexture = _flatNormalTexture};
         if (material)
         {
             const auto& pbr = material->pbr_metallic_roughness;
@@ -190,6 +194,8 @@ const Model& Library::load(const std::filesystem::path& path)
             result.albedoTexture = loadTextureRef(pbr.base_color_texture, true, _whiteTexture);
             result.metallicRoughnessTexture =
                 loadTextureRef(pbr.metallic_roughness_texture, false, _whiteTexture);
+            result.normalTexture =
+                loadTextureRef(material->normal_texture, false, _flatNormalTexture);
         }
 
         const auto index = static_cast<uint32_t>(model.materials.size());
@@ -223,6 +229,7 @@ const Model& Library::load(const std::filesystem::path& path)
             const cgltf_accessor* pos = findAttribute(prim, cgltf_attribute_type_position);
             const cgltf_accessor* normal = findAttribute(prim, cgltf_attribute_type_normal);
             const cgltf_accessor* uv = findAttribute(prim, cgltf_attribute_type_texcoord);
+            const cgltf_accessor* tangent = findAttribute(prim, cgltf_attribute_type_tangent);
             if (!pos)
             {
                 continue;
@@ -240,6 +247,12 @@ const Model& Library::load(const std::filesystem::path& path)
                 if (uv)
                 {
                     cgltf_accessor_read_float(uv, i, &v.uv.x, 2);
+                }
+                // absent tangent: unit U with +1 handedness. TODO: fallback with tangent generation
+                v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                if (tangent)
+                {
+                    cgltf_accessor_read_float(tangent, i, &v.tangent.x, 4);
                 }
             }
 
