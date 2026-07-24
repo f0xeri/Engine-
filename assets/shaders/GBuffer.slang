@@ -17,6 +17,9 @@ struct PushConstants
     uint vertexBufferSlot;
     uint baseVertex;
     uint albedoTexture;
+    uint metallicRoughnessTexture;
+    float metallicFactor;
+    float roughnessFactor;
 };
 
 [[vk::push_constant]]
@@ -45,6 +48,7 @@ struct FSOutput
 {
     float4 albedo : SV_Target0;
     float4 normal : SV_Target1;
+    float4 material : SV_Target2; // R metallic, G roughness, B occlusion
 };
 
 [shader("fragment")]
@@ -57,9 +61,14 @@ FSOutput fsMain(VSOutput input)
         discard; // Sponza foliage/chains are alpha-masked
     }
 
+    const float4 mr = gTextures[gPush.metallicRoughnessTexture].Sample(input.uv);
+    const float metallic = mr.b * gPush.metallicFactor;
+    const float roughness = mr.g * gPush.roughnessFactor;
+
     FSOutput output;
     output.albedo = albedoColor;
     output.normal = float4(normalize(input.normal), 0.0);
+    output.material = float4(metallic, roughness, 1.0, 0.0);
     return output;
 }
 

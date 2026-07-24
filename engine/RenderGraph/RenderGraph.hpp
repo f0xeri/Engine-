@@ -21,6 +21,7 @@ enum class Format : uint8_t
 {
     D32,
     RGBA8_Srgb,
+    RGBA8_Unorm,
     RG16F,
     RGBA16F
 };

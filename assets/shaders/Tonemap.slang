@@ -4,7 +4,6 @@ Sampler2D gTextures[];
 struct PushConstants
 {
     uint hdrTexture;
-    float exposure;
 };
 
 [[vk::push_constant]]
@@ -53,9 +52,7 @@ float3 tonemap(float3 color)
 [shader("fragment")]
 float4 fsMain(VSOutput input) : SV_Target
 {
-    // non-negative linear input color
+    // already pre-exposed by the lighting pass; the curve only compresses
     const float3 hdr = max(gTextures[gPush.hdrTexture].Sample(input.uv).rgb, 0.0);
-
-    // exposure answers "how bright", the curve answers "how to compress"
-    return float4(tonemap(hdr * gPush.exposure), 1.0);
+    return float4(tonemap(hdr), 1.0);
 }

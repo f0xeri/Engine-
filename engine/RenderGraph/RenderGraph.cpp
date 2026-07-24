@@ -18,6 +18,8 @@ vk::Format toVk(Format format)
             return vk::Format::eD32Sfloat;
         case Format::RGBA8_Srgb:
             return vk::Format::eR8G8B8A8Srgb;
+        case Format::RGBA8_Unorm:
+            return vk::Format::eR8G8B8A8Unorm;
         case Format::RG16F:
             return vk::Format::eR16G16Sfloat;
         case Format::RGBA16F:
@@ -53,6 +55,7 @@ vk::ImageUsageFlags usageFor(Format format)
             return vk::ImageUsageFlagBits::eDepthStencilAttachment |
                    vk::ImageUsageFlagBits::eSampled;
         case Format::RGBA8_Srgb:
+        case Format::RGBA8_Unorm:
         case Format::RG16F:
         case Format::RGBA16F:
             return vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
@@ -67,6 +70,7 @@ vk::ImageAspectFlags aspectFor(Format format)
         case Format::D32:
             return vk::ImageAspectFlagBits::eDepth;
         case Format::RGBA8_Srgb:
+        case Format::RGBA8_Unorm:
         case Format::RG16F:
         case Format::RGBA16F:
             return vk::ImageAspectFlagBits::eColor;

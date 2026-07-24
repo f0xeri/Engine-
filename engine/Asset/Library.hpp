@@ -18,7 +18,10 @@ namespace Asset
 struct Material
 {
     glm::vec4 baseColorFactor;
-    uint32_t albedoTexture; // bindless slot index
+    float metallicFactor;
+    float roughnessFactor;
+    uint32_t albedoTexture;             // bindless slot index
+    uint32_t metallicRoughnessTexture;  // glTF packs roughness in G, metallic in B
 };
 
 struct SubMesh

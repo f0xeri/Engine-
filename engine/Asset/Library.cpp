@@ -163,19 +163,33 @@ const Model& Library::load(const std::filesystem::path& path)
             return it->second;
         }
 
-        Material result{.baseColorFactor = glm::vec4(1.0f), .albedoTexture = _whiteTexture};
+        const auto loadTextureRef =
+            [&](const cgltf_texture_view& view, bool srgb, uint32_t fallback) -> uint32_t
+        {
+            if (!view.texture || !view.texture->image || !view.texture->image->uri)
+            {
+                return fallback;
+            }
+            std::string uri = view.texture->image->uri;
+            cgltf_decode_uri(uri.data());
+            uri.resize(std::strlen(uri.c_str()));
+            return loadTexture(directory / uri, srgb);
+        };
+
+        Material result{.baseColorFactor = glm::vec4(1.0f),
+                        .metallicFactor = 1.0f,
+                        .roughnessFactor = 1.0f,
+                        .albedoTexture = _whiteTexture,
+                        .metallicRoughnessTexture = _whiteTexture};
         if (material)
         {
             const auto& pbr = material->pbr_metallic_roughness;
             result.baseColorFactor = glm::make_vec4(pbr.base_color_factor);
-            if (pbr.base_color_texture.texture && pbr.base_color_texture.texture->image &&
-                pbr.base_color_texture.texture->image->uri)
-            {
-                std::string uri = pbr.base_color_texture.texture->image->uri;
-                cgltf_decode_uri(uri.data());
-                uri.resize(std::strlen(uri.c_str()));
-                result.albedoTexture = loadTexture(directory / uri, true);
-            }
+            result.metallicFactor = pbr.metallic_factor;
+            result.roughnessFactor = pbr.roughness_factor;
+            result.albedoTexture = loadTextureRef(pbr.base_color_texture, true, _whiteTexture);
+            result.metallicRoughnessTexture =
+                loadTextureRef(pbr.metallic_roughness_texture, false, _whiteTexture);
         }
 
         const auto index = static_cast<uint32_t>(model.materials.size());

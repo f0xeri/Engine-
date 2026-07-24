@@ -22,7 +22,10 @@ struct LightingParams
     uint normalTexture;
     uint depthSlot;
     uint shadowSlot;
-    uint pad;
+    uint materialSlot;
+
+    float3 cameraPos;
+    float exposure;
 };
 
 struct PushConstants
@@ -49,7 +52,8 @@ VSOutput vsMain(uint vertexId : SV_VertexID)
     return output;
 }
 
-static const float3 BackgroundColor = float3(0.7, 1.1, 2.0);
+// stub sky in physical radiance (nits) until real atmosphere/IBL
+static const float3 SkyRadiance = float3(8000.0, 13000.0, 24000.0);
 
 // 1 = lit, 0 = occluded
 float shadowFactor(float4x4 lightViewProj,
@@ -93,6 +97,56 @@ float shadowFactor(float4x4 lightViewProj,
     return sum / 9.0;
 }
 
+static const float PI = 3.14159265;
+
+// a is alpha = perceptualRoughness^2
+float D_GGX(float NoH, float a)
+{
+    const float a2 = a * a;
+    const float f = (NoH * a2 - NoH) * NoH + 1.0;
+    return a2 / (PI * f * f);
+}
+
+float3 F_Schlick(float u, float3 f0)
+{
+    return f0 + (1.0 - f0) * pow(saturate(1.0 - u), 5.0);
+}
+
+// height-correlated Smith, already folds the 1 / (4 NoV NoL) of the specular denom
+float V_SmithGGXCorrelated(float NoV, float NoL, float a)
+{
+    const float a2 = a * a;
+    const float GGXL = NoV * sqrt((-NoL * a2 + NoL) * NoL + a2);
+    const float GGXV = NoL * sqrt((-NoV * a2 + NoV) * NoV + a2);
+    return 0.5 / (GGXV + GGXL);
+}
+
+float Fd_Lambert()
+{
+    return 1.0 / PI;
+}
+
+// Cook-Torrance direct BRDF: f(l,v) = Fd + Fr, without radiance or NoL
+float3 brdf(float3 n, float3 v, float3 l, float3 diffuseColor, float3 f0, float perceptualRoughness)
+{
+    const float3 h = normalize(v + l);
+
+    const float NoV = abs(dot(n, v)) + 1e-5;
+    const float NoL = clamp(dot(n, l), 0.0, 1.0);
+    const float NoH = clamp(dot(n, h), 0.0, 1.0);
+    const float LoH = clamp(dot(l, h), 0.0, 1.0);
+
+    const float roughness = perceptualRoughness * perceptualRoughness; // perceptual -> alpha
+
+    const float D = D_GGX(NoH, roughness);
+    const float3 F = F_Schlick(LoH, f0);
+    const float V = V_SmithGGXCorrelated(NoV, NoL, roughness);
+
+    const float3 Fr = (D * V) * F;
+    const float3 Fd = diffuseColor * Fd_Lambert();
+    return Fd + Fr;
+}
+
 [shader("fragment")]
 float4 fsMain(VSOutput input) : SV_Target
 {
@@ -101,21 +155,36 @@ float4 fsMain(VSOutput input) : SV_Target
     const float depth = gTextures[p.depthSlot].Sample(input.uv).r;
     if (depth <= 0.0)
     {
-        return float4(BackgroundColor, 1.0);
+        return float4(SkyRadiance * p.exposure, 1.0);
     }
 
-    const float4 albedo = gTextures[p.albedoTexture].Sample(input.uv);
-    const float3 normal = gTextures[p.normalTexture].Sample(input.uv).xyz;
+    const float3 albedo = gTextures[p.albedoTexture].Sample(input.uv).rgb;
+    const float3 N = normalize(gTextures[p.normalTexture].Sample(input.uv).xyz);
+    const float2 mr = gTextures[p.materialSlot].Sample(input.uv).rg;
+    const float metallic = mr.r;
+    const float perceptualRoughness = max(mr.g, 0.045); // floor stops the NDF spiking to a mirror
 
     float4 world = mul(p.invViewProj, float4(input.uv * 2.0 - 1.0, depth, 1.0));
     world /= world.w;
 
-    const float3 sun = normalize(p.sunDir);
-    const float NdotL = max(0.0, dot(normal, sun));
+    const float3 v = normalize(p.cameraPos - world.xyz);
+    const float3 l = normalize(p.sunDir);
+    const float NdotL = max(dot(N, l), 0.0);
+
+    // split the material once; brdf and ambient share it
+    const float3 f0 = lerp(float3(0.04), albedo, metallic);
+    const float3 diffuseColor = (1.0 - metallic) * albedo;
+
     const float shadow = shadowFactor(
         p.lightViewProj, world.xyz, NdotL, p.shadowBias, p.shadowMapSize, p.shadowSlot);
+    const float3 direct =
+        brdf(N, v, l, diffuseColor, f0, perceptualRoughness) * p.sunRadiance * NdotL * shadow;
 
-    const float3 light = (p.sunRadiance * NdotL * shadow) + p.ambientRadiance;
+    // flat-environment ambient until IBL. ambientRadiance is sky irradiance, so the diffuse
+    // response carries the same 1/PI as the sun term; flat f0 (not grazing Fresnel) for the
+    // specular part, or every silhouette rim-glows against the constant ambient
+    const float3 ambient = (p.ambientRadiance / PI) * (diffuseColor + f0);
 
-    return float4(albedo.rgb * light, 1.0);
+    // pre-exposure
+    return float4((direct + ambient) * p.exposure, 1.0);
 }

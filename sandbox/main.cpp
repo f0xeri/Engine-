@@ -23,6 +23,9 @@ struct PushConstants
     uint32_t vertexBufferSlot;
     uint32_t baseVertex;
     uint32_t albedoTexture;
+    uint32_t metallicRoughnessTexture;
+    float metallicFactor;
+    float roughnessFactor;
 };
 
 struct LightingParams
@@ -42,7 +45,10 @@ struct LightingParams
     uint32_t normalTexture;
     uint32_t depthSlot;
     uint32_t shadowSlot;
-    uint32_t pad;
+    uint32_t materialSlot;
+
+    glm::vec3 cameraPos;
+    float exposure;
 };
 
 struct LightingPush
@@ -57,7 +63,6 @@ constexpr glm::vec3 SceneCenter = {0.0f, 5.0f, 0.0f};
 struct TonemapParams
 {
     uint32_t hdrTexture;
-    float exposure;
 };
 
 } // namespace
@@ -69,8 +74,9 @@ int main()
                           .pipelineCache = ENGINE_PIPELINE_CACHE});
 
     const auto shadowPipeline = app.loadPipeline("Shadow", std::span<const Graph::Format>{});
-    const auto gbufferPipeline =
-        app.loadPipeline("GBuffer", std::array{Graph::Format::RGBA8_Srgb, Graph::Format::RGBA16F});
+    const auto gbufferPipeline = app.loadPipeline(
+        "GBuffer",
+        std::array{Graph::Format::RGBA8_Srgb, Graph::Format::RGBA16F, Graph::Format::RGBA8_Unorm});
     const auto lightingPipeline = app.loadPipeline("Lighting", std::array{Graph::Format::RGBA16F});
     const auto tonemapPipeline = app.loadPipeline("Tonemap");
     const Asset::Model& sponza = app.assets().load(std::filesystem::path(ENGINE_SAMPLE_ASSETS_DIR) /
@@ -80,30 +86,31 @@ int main()
 
     glm::vec3 sunDir = {0.4f, 1.0f, 0.3f};
     glm::vec3 sunColor = {1.0f, 0.95f, 0.85f};
-    float sunIntensity = 5.0f;
-    glm::vec3 ambientColor = {0.5f, 0.6f, 0.8f};
-    float ambientIntensity = 0.5f;
+    float sunIlluminance = 100000.0f; // lux
+    glm::vec3 skyColor = {0.5f, 0.6f, 0.8f};
+    float skyIlluminance = 20000.0f; // lux, blue sky ambient
 
-    // в шейдер уходит 2^exposureEv, что даёт более точную конфигурацию в начале слайдера
-    float exposureEv = -2.0f;
+    // physical camera: Exposure = 1 / (1.2 * 2^EV100); sunny-16 is EV100 ~15
+    float exposureEv100 = 15.0f;
 
     float shadowRadius = 18.0f;
     float shadowBias = 0.001f;
 
-    app.setDebugTab("Sandbox",
-                    [&]
-                    {
-                        ImGui::SliderFloat3("Sun direction", &sunDir.x, -1.0f, 1.0f);
-                        ImGui::ColorEdit3("Sun color", &sunColor.x);
-                        ImGui::SliderFloat("Sun intensity", &sunIntensity, 0.0f, 20.0f);
-                        ImGui::ColorEdit3("Ambient color", &ambientColor.x);
-                        ImGui::SliderFloat("Ambient intensity", &ambientIntensity, 0.0f, 2.0f);
-                        ImGui::Separator();
-                        ImGui::SliderFloat("Shadow radius", &shadowRadius, 5.0f, 60.0f);
-                        ImGui::SliderFloat("Shadow bias", &shadowBias, 0.0f, 0.01f, "%.5f");
-                        ImGui::Separator();
-                        ImGui::SliderFloat("Exposure (EV)", &exposureEv, -8.0f, 8.0f);
-                    });
+    app.setDebugTab(
+        "Sandbox",
+        [&]
+        {
+            ImGui::SliderFloat3("Sun direction", &sunDir.x, -1.0f, 1.0f);
+            ImGui::ColorEdit3("Sun color", &sunColor.x);
+            ImGui::SliderFloat("Sun illuminance (lux)", &sunIlluminance, 0.0f, 150000.0f, "%.0f");
+            ImGui::ColorEdit3("Sky color", &skyColor.x);
+            ImGui::SliderFloat("Sky illuminance (lux)", &skyIlluminance, 0.0f, 50000.0f, "%.0f");
+            ImGui::Separator();
+            ImGui::SliderFloat("Shadow radius", &shadowRadius, 5.0f, 60.0f);
+            ImGui::SliderFloat("Shadow bias", &shadowBias, 0.0f, 0.01f, "%.5f");
+            ImGui::Separator();
+            ImGui::SliderFloat("Exposure (EV100)", &exposureEv100, 0.0f, 20.0f, "%.1f");
+        });
 
     app.run(
         [&](const App::FrameInfo& frame)
@@ -125,6 +132,7 @@ int main()
 
             const auto albedo = graph.createTexture({Graph::Format::RGBA8_Srgb, frame.extent});
             const auto normal = graph.createTexture({Graph::Format::RGBA16F, frame.extent});
+            const auto material = graph.createTexture({Graph::Format::RGBA8_Unorm, frame.extent});
             const auto depth = graph.createTexture({Graph::Format::D32, frame.extent});
             const auto hdr = graph.createTexture({Graph::Format::RGBA16F, frame.extent});
             const auto shadowMap = graph.createTexture(
@@ -144,7 +152,6 @@ int main()
                 {
                     rec.bindPipeline(app.pipeline(shadowPipeline));
                     rec.bindIndexBuffer(app.geometry().indexBuffer());
-
                     for (const Asset::SubMesh& submesh : sponza.submeshes)
                     {
                         const Asset::Material& material = sponza.materials[submesh.materialIndex];
@@ -154,6 +161,9 @@ int main()
                             .vertexBufferSlot = app.geometry().vertexBufferSlot(),
                             .baseVertex = submesh.range.baseVertex,
                             .albedoTexture = material.albedoTexture,
+                            .metallicRoughnessTexture = material.metallicRoughnessTexture,
+                            .metallicFactor = material.metallicFactor,
+                            .roughnessFactor = material.roughnessFactor,
                         });
                         rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
                     }
@@ -161,7 +171,8 @@ int main()
 
             graph.addPass(
                 "gbuffer",
-                {.color = {{albedo}, {normal}}, .depth = Graph::DepthAttachment{.texture = depth}},
+                {.color = {{albedo}, {normal}, {material}},
+                 .depth = Graph::DepthAttachment{.texture = depth}},
                 [&app, &sponza, gbufferPipeline, viewProj](Graph::CmdRecorder& rec)
                 {
                     rec.bindPipeline(app.pipeline(gbufferPipeline));
@@ -176,6 +187,9 @@ int main()
                             .vertexBufferSlot = app.geometry().vertexBufferSlot(),
                             .baseVertex = submesh.range.baseVertex,
                             .albedoTexture = material.albedoTexture,
+                            .metallicRoughnessTexture = material.metallicRoughnessTexture,
+                            .metallicFactor = material.metallicFactor,
+                            .roughnessFactor = material.roughnessFactor,
                         });
                         rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
                     }
@@ -186,17 +200,19 @@ int main()
                                .lightViewProj = lightViewProj,
                                .sunDir = sunDir,
                                .shadowBias = shadowBias,
-                               .sunRadiance = sunColor * sunIntensity,
+                               .sunRadiance = sunColor * sunIlluminance,
                                .shadowMapSize = ShadowMapResolution,
-                               .ambientRadiance = ambientColor * ambientIntensity,
+                               .ambientRadiance = skyColor * skyIlluminance,
                                .albedoTexture = graph.bindlessSlot(albedo),
                                .normalTexture = graph.bindlessSlot(normal),
                                .depthSlot = graph.bindlessSlot(depth),
                                .shadowSlot = graph.shadowSlot(shadowMap),
-                               .pad = 0});
+                               .materialSlot = graph.bindlessSlot(material),
+                               .cameraPos = camera.position(),
+                               .exposure = 1.0f / (1.2f * std::exp2(exposureEv100))});
 
             graph.addPass("lighting",
-                          {.input = {albedo, normal, depth, shadowMap},
+                          {.input = {albedo, normal, material, depth, shadowMap},
                            .color = {{hdr, Graph::LoadOp::DontCare}}},
                           [&app, lightingPipeline, lightingParams](Graph::CmdRecorder& rec)
                           {
@@ -207,8 +223,7 @@ int main()
                               rec.draw(3);
                           });
 
-            const TonemapParams tonemapParams{.hdrTexture = graph.bindlessSlot(hdr),
-                                              .exposure = std::exp2(exposureEv)};
+            const TonemapParams tonemapParams{.hdrTexture = graph.bindlessSlot(hdr)};
 
             graph.addPass("tonemap",
                           {.input = {hdr}, .color = {{frame.backbuffer, Graph::LoadOp::DontCare}}},
