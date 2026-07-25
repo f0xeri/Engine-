@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <type_traits>
 
 namespace GPU
@@ -34,6 +35,9 @@ public:
     // drops cursor to 0
     void beginFrame(uint64_t frameIndex);
 
+    // current frame's buffer, for referencing a pushed indirect-command array in a draw
+    vk::Buffer currentBuffer() const { return _slots[_current].buffer; }
+
     template <typename T>
     Ref push(const T& value)
     {
@@ -41,6 +45,19 @@ public:
 
         const Ref ref = allocate(sizeof(T));
         std::memcpy(_slots[_current].mapped + ref.offset, &value, sizeof(T));
+        return ref;
+    }
+
+    // Contiguous array; element i lives at ref.offset + i * sizeof(T). Ref points at element 0 -
+    // the shader indexes it by gl_DrawID (draw table) or material index.
+    template <typename T>
+    Ref pushArray(std::span<const T> values)
+    {
+        static_assert(std::is_trivially_copyable_v<T>, "shader constants must be POD");
+
+        const auto bytes = static_cast<uint32_t>(sizeof(T) * values.size());
+        const Ref ref = allocate(bytes);
+        std::memcpy(_slots[_current].mapped + ref.offset, values.data(), bytes);
         return ref;
     }
 

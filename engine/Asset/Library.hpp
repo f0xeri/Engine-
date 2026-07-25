@@ -20,16 +20,19 @@ struct Material
     glm::vec4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
-    uint32_t albedoTexture;             // bindless slot index
-    uint32_t metallicRoughnessTexture;  // glTF packs roughness in G, metallic in B
-    uint32_t normalTexture;             // tangent-space, linear
+    uint32_t albedoTexture;            // bindless slot index
+    uint32_t metallicRoughnessTexture; // glTF packs roughness in G, metallic in B
+    uint32_t normalTexture;            // tangent-space, linear
+    uint32_t _pad[3];                  // 48B: keeps the GPU material-table stride 16-aligned
 };
+static_assert(sizeof(Material) == 48);
 
 struct SubMesh
 {
     MeshRange range;
     uint32_t materialIndex;
     glm::mat4 model;
+    glm::mat4 normalMatrix; // = transpose(inverse(mat3(model)))
 };
 
 struct Model
@@ -72,8 +75,8 @@ private:
     std::unordered_map<std::string, Model> _models;
     std::unordered_map<std::string, uint32_t> _textureSlots;
     std::vector<Texture> _textures;
-    uint32_t _whiteTexture = 0;       // slot of the 1x1 white fallback
-    uint32_t _flatNormalTexture = 0;  // slot of the 1x1 flat-normal fallback
+    uint32_t _whiteTexture = 0;      // slot of the 1x1 white fallback
+    uint32_t _flatNormalTexture = 0; // slot of the 1x1 flat-normal fallback
 };
 
 } // namespace Asset

@@ -1,13 +1,13 @@
 [[vk::binding(0, 0)]]
 Sampler2D gTextures[];
 
-struct PushConstants
+struct TonemapPush
 {
     uint hdrTexture;
 };
 
 [[vk::push_constant]]
-ConstantBuffer<PushConstants> gPush;
+ConstantBuffer<TonemapPush> gPush;
 
 struct VSOutput
 {

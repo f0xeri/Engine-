@@ -24,6 +24,14 @@ void CmdRecorder::drawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t
     _cmd.drawIndexed(indexCount, instanceCount, firstIndex, 0, 0);
 }
 
+void CmdRecorder::drawIndexedIndirect(vk::Buffer buffer,
+                                      vk::DeviceSize offset,
+                                      uint32_t drawCount,
+                                      uint32_t stride)
+{
+    _cmd.drawIndexedIndirect(buffer, offset, drawCount, stride);
+}
+
 void CmdRecorder::draw(uint32_t vertexCount,
                        uint32_t instanceCount,
                        uint32_t firstVertex,

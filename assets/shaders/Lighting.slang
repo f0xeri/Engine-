@@ -5,7 +5,7 @@ ByteAddressBuffer gBuffers[];
 [[vk::binding(2, 0)]]
 Sampler2DShadow gShadowMaps[];
 
-struct LightingParams
+struct LightingBlock
 {
     column_major float4x4 invViewProj;   // screen NDC -> world
     column_major float4x4 lightViewProj; // world -> light clip
@@ -28,14 +28,14 @@ struct LightingParams
     float exposure;
 };
 
-struct PushConstants
+struct LightingPush
 {
     uint paramsSlot;
     uint paramsOffset;
 };
 
 [[vk::push_constant]]
-ConstantBuffer<PushConstants> gPush;
+ConstantBuffer<LightingPush> gPush;
 
 struct VSOutput
 {
@@ -150,7 +150,7 @@ float3 brdf(float3 n, float3 v, float3 l, float3 diffuseColor, float3 f0, float 
 [shader("fragment")]
 float4 fsMain(VSOutput input) : SV_Target
 {
-    const LightingParams p = gBuffers[gPush.paramsSlot].Load<LightingParams>(gPush.paramsOffset);
+    const LightingBlock p = gBuffers[gPush.paramsSlot].Load<LightingBlock>(gPush.paramsOffset);
 
     const float depth = gTextures[p.depthSlot].Sample(input.uv).r;
     if (depth <= 0.0)

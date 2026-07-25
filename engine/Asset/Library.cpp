@@ -184,7 +184,8 @@ const Model& Library::load(const std::filesystem::path& path)
                         .roughnessFactor = 1.0f,
                         .albedoTexture = _whiteTexture,
                         .metallicRoughnessTexture = _whiteTexture,
-                        .normalTexture = _flatNormalTexture};
+                        .normalTexture = _flatNormalTexture,
+                        ._pad = {}};
         if (material)
         {
             const auto& pbr = material->pbr_metallic_roughness;
@@ -217,6 +218,7 @@ const Model& Library::load(const std::filesystem::path& path)
 
         glm::mat4 world;
         cgltf_node_transform_world(&node, &world[0][0]);
+        const glm::mat4 normalMatrix = glm::mat4(glm::transpose(glm::inverse(glm::mat3(world))));
 
         for (size_t p = 0; p < node.mesh->primitives_count; ++p)
         {
@@ -275,7 +277,8 @@ const Model& Library::load(const std::filesystem::path& path)
 
             model.submeshes.push_back({.range = _geometry.add(vertices, indices),
                                        .materialIndex = resolveMaterial(prim.material),
-                                       .model = world});
+                                       .model = world,
+                                       .normalMatrix = normalMatrix});
         }
     }
 

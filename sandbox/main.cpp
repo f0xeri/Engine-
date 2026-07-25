@@ -11,33 +11,39 @@
 #include <filesystem>
 #include <glm/matrix.hpp>
 #include <span>
+#include <vector>
 #include <imgui.h>
 
 namespace
 {
 
-struct ViewConstants
+struct ViewBlock
 {
     glm::mat4 viewProj;
     glm::mat4 lightViewProj;
 };
 
-struct PushConstants
+// per-draw data
+struct DrawBlock
 {
     glm::mat4 model;
-    glm::vec4 baseColorFactor;
+    glm::mat4 normalMatrix;
     uint32_t vertexBufferSlot;
     uint32_t baseVertex;
-    uint32_t albedoTexture;
-    uint32_t metallicRoughnessTexture;
-    uint32_t normalTexture;
-    float metallicFactor;
-    float roughnessFactor;
-    uint32_t viewSlot;
+    uint32_t materialIndex;
+    uint32_t _pad;
+};
+static_assert(sizeof(DrawBlock) == 144);
+
+struct GeometryPush
+{
+    uint32_t bufferSlot;
     uint32_t viewOffset;
+    uint32_t drawOffset;
+    uint32_t materialOffset;
 };
 
-struct LightingParams
+struct LightingBlock
 {
     glm::mat4 invViewProj;
     glm::mat4 lightViewProj;
@@ -69,7 +75,7 @@ struct LightingPush
 constexpr uint32_t ShadowMapResolution = 2048;
 constexpr glm::vec3 SceneCenter = {0.0f, 5.0f, 0.0f};
 
-struct TonemapParams
+struct TonemapPush
 {
     uint32_t hdrTexture;
 };
@@ -155,79 +161,89 @@ int main()
                 glm::lookAt(SceneCenter + (sun * shadowRadius * 1.5f), SceneCenter, up);
 
             const GPU::FrameUniforms::Ref viewRef = frame.uniforms.push(
-                ViewConstants{.viewProj = viewProj, .lightViewProj = lightViewProj});
+                ViewBlock{.viewProj = viewProj, .lightViewProj = lightViewProj});
 
-            graph.addPass(
-                "shadow",
-                {.depth = Graph::DepthAttachment{.texture = shadowMap}},
-                [&app, &sponza, shadowPipeline, viewRef](Graph::CmdRecorder& rec)
-                {
-                    rec.bindPipeline(app.pipeline(shadowPipeline));
-                    rec.bindIndexBuffer(app.geometry().indexBuffer());
-                    for (const Asset::SubMesh& submesh : sponza.submeshes)
-                    {
-                        const Asset::Material& material = sponza.materials[submesh.materialIndex];
-                        rec.pushConstants(PushConstants{
-                            .model = submesh.model,
-                            .baseColorFactor = material.baseColorFactor,
-                            .vertexBufferSlot = app.geometry().vertexBufferSlot(),
-                            .baseVertex = submesh.range.baseVertex,
-                            .albedoTexture = material.albedoTexture,
-                            .metallicRoughnessTexture = material.metallicRoughnessTexture,
-                            .normalTexture = material.normalTexture,
-                            .metallicFactor = material.metallicFactor,
-                            .roughnessFactor = material.roughnessFactor,
-                            .viewSlot = viewRef.slot,
-                            .viewOffset = viewRef.offset,
-                        });
-                        rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
-                    }
-                });
+            // draws[i] and commands[i] are 1:1 so gl_DrawID indexes both.
+            // vertexOffset stays 0: vertices are pulled via baseVertex, not fixed-function fetch
+            const uint32_t vertexSlot = app.geometry().vertexBufferSlot();
+            std::vector<DrawBlock> draws;
+            std::vector<vk::DrawIndexedIndirectCommand> commands;
+            draws.reserve(sponza.submeshes.size());
+            commands.reserve(sponza.submeshes.size());
+            for (const Asset::SubMesh& submesh : sponza.submeshes)
+            {
+                draws.push_back({.model = submesh.model,
+                                 .normalMatrix = submesh.normalMatrix,
+                                 .vertexBufferSlot = vertexSlot,
+                                 .baseVertex = submesh.range.baseVertex,
+                                 .materialIndex = submesh.materialIndex,
+                                 ._pad = 0});
+                commands.push_back({submesh.range.indexCount,
+                                    1,
+                                    submesh.range.firstIndex,
+                                    /*vertexOffset*/ 0,
+                                    0});
+            }
 
-            graph.addPass(
-                "gbuffer",
-                {.color = {{albedo}, {normal}, {material}},
-                 .depth = Graph::DepthAttachment{.texture = depth}},
-                [&app, &sponza, gbufferPipeline, viewRef](Graph::CmdRecorder& rec)
-                {
-                    rec.bindPipeline(app.pipeline(gbufferPipeline));
-                    rec.bindIndexBuffer(app.geometry().indexBuffer());
+            const GPU::FrameUniforms::Ref drawsRef =
+                frame.uniforms.pushArray(std::span<const DrawBlock>(draws));
+            const GPU::FrameUniforms::Ref materialsRef =
+                frame.uniforms.pushArray(std::span<const Asset::Material>(sponza.materials));
+            const GPU::FrameUniforms::Ref indirectRef =
+                frame.uniforms.pushArray(std::span<const vk::DrawIndexedIndirectCommand>(commands));
+            const vk::Buffer indirectBuffer = frame.uniforms.currentBuffer();
+            const auto drawCount = static_cast<uint32_t>(commands.size());
 
-                    for (const Asset::SubMesh& submesh : sponza.submeshes)
-                    {
-                        const Asset::Material& material = sponza.materials[submesh.materialIndex];
-                        rec.pushConstants(PushConstants{
-                            .model = submesh.model,
-                            .baseColorFactor = material.baseColorFactor,
-                            .vertexBufferSlot = app.geometry().vertexBufferSlot(),
-                            .baseVertex = submesh.range.baseVertex,
-                            .albedoTexture = material.albedoTexture,
-                            .metallicRoughnessTexture = material.metallicRoughnessTexture,
-                            .normalTexture = material.normalTexture,
-                            .metallicFactor = material.metallicFactor,
-                            .roughnessFactor = material.roughnessFactor,
-                            .viewSlot = viewRef.slot,
-                            .viewOffset = viewRef.offset,
-                        });
-                        rec.drawIndexed(submesh.range.indexCount, submesh.range.firstIndex);
-                    }
-                });
+            // frame-constant now: nothing per-draw remains in the push
+            const GeometryPush basePush{.bufferSlot = viewRef.slot,
+                                        .viewOffset = viewRef.offset,
+                                        .drawOffset = drawsRef.offset,
+                                        .materialOffset = materialsRef.offset};
+
+            const auto drawScene =
+                [basePush, indirectBuffer, indirectRef, drawCount](Graph::CmdRecorder& rec)
+            {
+                rec.pushConstants(basePush);
+                rec.drawIndexedIndirect(indirectBuffer,
+                                        indirectRef.offset,
+                                        drawCount,
+                                        sizeof(vk::DrawIndexedIndirectCommand));
+            };
+
+            graph.addPass("shadow",
+                          {.depth = Graph::DepthAttachment{.texture = shadowMap}},
+                          [&app, shadowPipeline, drawScene](Graph::CmdRecorder& rec)
+                          {
+                              rec.bindPipeline(app.pipeline(shadowPipeline));
+                              rec.bindIndexBuffer(app.geometry().indexBuffer());
+                              drawScene(rec);
+                          });
+
+            graph.addPass("gbuffer",
+                          {.color = {{albedo}, {normal}, {material}},
+                           .depth = Graph::DepthAttachment{.texture = depth}},
+                          [&app, gbufferPipeline, drawScene](Graph::CmdRecorder& rec)
+                          {
+                              rec.bindPipeline(app.pipeline(gbufferPipeline));
+                              rec.bindIndexBuffer(app.geometry().indexBuffer());
+                              drawScene(rec);
+                          });
 
             const GPU::FrameUniforms::Ref lightingParams = frame.uniforms.push(
-                LightingParams{.invViewProj = glm::inverse(viewProj),
-                               .lightViewProj = lightViewProj,
-                               .sunDir = sunDir,
-                               .shadowBias = shadowBias,
-                               .sunRadiance = sunColor * sunIlluminance,
-                               .shadowMapSize = ShadowMapResolution,
-                               .ambientRadiance = skyColor * skyIlluminance,
-                               .albedoTexture = graph.bindlessSlot(albedo),
-                               .normalTexture = graph.bindlessSlot(normal),
-                               .depthSlot = graph.bindlessSlot(depth),
-                               .shadowSlot = graph.shadowSlot(shadowMap),
-                               .materialSlot = graph.bindlessSlot(material),
-                               .cameraPos = camera.position(),
-                               .exposure = 1.0f / (1.2f * std::exp2(exposureEv100))});
+                LightingBlock{.invViewProj = glm::inverse(viewProj),
+                              .lightViewProj = lightViewProj,
+                              .sunDir = sunDir,
+                              .shadowBias = shadowBias,
+                              .sunRadiance = sunColor * sunIlluminance,
+                              .shadowMapSize = ShadowMapResolution,
+                              .ambientRadiance = skyColor * skyIlluminance,
+                              .albedoTexture = graph.bindlessSlot(albedo),
+                              .normalTexture = graph.bindlessSlot(normal),
+                              .depthSlot = graph.bindlessSlot(depth),
+                              .shadowSlot = graph.shadowSlot(shadowMap),
+                              .materialSlot = graph.bindlessSlot(material),
+                              .cameraPos = camera.position(),
+                              .exposure = 1.0f / (1.2f * std::exp2(exposureEv100))});
 
             graph.addPass("lighting",
                           {.input = {albedo, normal, material, depth, shadowMap},
@@ -241,14 +257,14 @@ int main()
                               rec.draw(3);
                           });
 
-            const TonemapParams tonemapParams{.hdrTexture = graph.bindlessSlot(hdr)};
+            const TonemapPush tonemapPush{.hdrTexture = graph.bindlessSlot(hdr)};
 
             graph.addPass("tonemap",
                           {.input = {hdr}, .color = {{frame.backbuffer, Graph::LoadOp::DontCare}}},
-                          [&app, tonemapPipeline, tonemapParams](Graph::CmdRecorder& rec)
+                          [&app, tonemapPipeline, tonemapPush](Graph::CmdRecorder& rec)
                           {
                               rec.bindPipeline(app.pipeline(tonemapPipeline));
-                              rec.pushConstants(tonemapParams);
+                              rec.pushConstants(tonemapPush);
                               rec.draw(3);
                           });
         });

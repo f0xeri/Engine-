@@ -22,6 +22,10 @@ public:
               uint32_t firstVertex = 0,
               uint32_t firstInstance = 0);
     void drawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t instanceCount = 1);
+    void drawIndexedIndirect(vk::Buffer buffer,
+                             vk::DeviceSize offset,
+                             uint32_t drawCount,
+                             uint32_t stride);
 
     template <typename T>
     void pushConstants(const T& data)

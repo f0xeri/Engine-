@@ -9,7 +9,10 @@ namespace GPU
 
 FrameUniforms::FrameUniforms(VulkanContext& ctx, BindlessRegistry& bindless) : _ctx(ctx)
 {
-    const vk::BufferCreateInfo bufferInfo({}, BufferBytes, vk::BufferUsageFlagBits::eStorageBuffer);
+    const vk::BufferCreateInfo bufferInfo(
+        {},
+        BufferBytes,
+        vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eIndirectBuffer);
     const VkBufferCreateInfo rawInfo = bufferInfo;
 
     VmaAllocationCreateInfo allocInfo{};
