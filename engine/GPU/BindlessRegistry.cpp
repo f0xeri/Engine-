@@ -97,12 +97,21 @@ BindlessRegistry::~BindlessRegistry()
 
 uint32_t BindlessRegistry::registerTexture(vk::ImageView view)
 {
-    if (_nextTexture >= MaxTextures)
+    uint32_t slot;
+    if (!_freeTextures.empty())
+    {
+        slot = _freeTextures.back();
+        _freeTextures.pop_back();
+    }
+    else if (_nextTexture < MaxTextures)
+    {
+        slot = _nextTexture++;
+    }
+    else
     {
         LOG_ERROR(Vulkan, "bindless texture slots exhausted ({})", MaxTextures);
         std::abort();
     }
-    const uint32_t slot = _nextTexture++;
 
     const vk::DescriptorImageInfo info(
         _defaultSampler, view, vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -115,12 +124,21 @@ uint32_t BindlessRegistry::registerTexture(vk::ImageView view)
 
 uint32_t BindlessRegistry::registerShadowTexture(vk::ImageView view)
 {
-    if (_nextShadowTexture >= MaxShadowTextures)
+    uint32_t slot;
+    if (!_freeShadowTextures.empty())
+    {
+        slot = _freeShadowTextures.back();
+        _freeShadowTextures.pop_back();
+    }
+    else if (_nextShadowTexture < MaxShadowTextures)
+    {
+        slot = _nextShadowTexture++;
+    }
+    else
     {
         LOG_ERROR(Vulkan, "bindless shadow slots exhausted ({})", MaxShadowTextures);
         std::abort();
     }
-    const uint32_t slot = _nextShadowTexture++;
 
     const vk::DescriptorImageInfo info(
         _shadowSampler, view, vk::ImageLayout::eDepthReadOnlyOptimal);
@@ -129,6 +147,16 @@ uint32_t BindlessRegistry::registerShadowTexture(vk::ImageView view)
             _set, ShadowBinding, slot, 1, vk::DescriptorType::eCombinedImageSampler, &info),
         {});
     return slot;
+}
+
+void BindlessRegistry::unregisterTexture(uint32_t slot)
+{
+    _freeTextures.push_back(slot);
+}
+
+void BindlessRegistry::unregisterShadowTexture(uint32_t slot)
+{
+    _freeShadowTextures.push_back(slot);
 }
 
 uint32_t BindlessRegistry::registerBuffer(vk::Buffer buffer)

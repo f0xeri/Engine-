@@ -356,6 +356,14 @@ void RenderGraph::trim()
 {
     for (PoolEntry& entry : _pool)
     {
+        if (entry.bindlessSlot != GPU::InvalidBindlessSlot)
+        {
+            _bindless.unregisterTexture(entry.bindlessSlot);
+        }
+        if (entry.shadowSlot != GPU::InvalidBindlessSlot)
+        {
+            _bindless.unregisterShadowTexture(entry.shadowSlot);
+        }
         _ctx.device.destroyImageView(entry.view);
         vmaDestroyImage(_ctx.allocator, entry.image, entry.allocation);
     }
