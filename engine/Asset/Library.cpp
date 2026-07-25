@@ -185,7 +185,7 @@ const Model& Library::load(const std::filesystem::path& path)
                         .albedoTexture = _whiteTexture,
                         .metallicRoughnessTexture = _whiteTexture,
                         .normalTexture = _flatNormalTexture,
-                        ._pad = {}};
+                        .doubleSided = 0};
         if (material)
         {
             const auto& pbr = material->pbr_metallic_roughness;
@@ -197,6 +197,7 @@ const Model& Library::load(const std::filesystem::path& path)
                 loadTextureRef(pbr.metallic_roughness_texture, false, _whiteTexture);
             result.normalTexture =
                 loadTextureRef(material->normal_texture, false, _flatNormalTexture);
+            result.doubleSided = material->double_sided ? 1u : 0u;
         }
 
         const auto index = static_cast<uint32_t>(model.materials.size());

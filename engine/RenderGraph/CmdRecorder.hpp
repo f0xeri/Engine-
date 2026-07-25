@@ -9,6 +9,13 @@
 namespace Graph
 {
 
+enum class CullMode : uint8_t
+{
+    None,
+    Back,
+    Front
+};
+
 // minimal CommandBuffer interface
 class CmdRecorder
 {
@@ -17,6 +24,10 @@ public:
 
     void bindPipeline(const GPU::Pipeline& pipeline);
     void bindIndexBuffer(vk::Buffer buffer);
+    // dynamic state; bindPipeline resets it to None, passes override per draw batch
+    void setCullMode(CullMode mode);
+    // dynamic slope-scaled depth bias; bindPipeline disables it, the shadow pass enables + sets it
+    void setDepthBias(float constant, float slope);
     void draw(uint32_t vertexCount,
               uint32_t instanceCount = 1,
               uint32_t firstVertex = 0,

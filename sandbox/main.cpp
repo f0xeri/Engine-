@@ -49,7 +49,7 @@ struct LightingBlock
     glm::mat4 lightViewProj;
 
     glm::vec3 sunDir;
-    float shadowBias;
+    float normalOffset; // normal shadow bias magnitude
 
     glm::vec3 sunRadiance;
     float shadowMapSize;
@@ -64,6 +64,9 @@ struct LightingBlock
 
     glm::vec3 cameraPos;
     float exposure;
+
+    float depthBias; // bias for shadows
+    glm::vec3 _pad;
 };
 
 struct LightingPush
@@ -109,7 +112,9 @@ int main()
     float exposureEv100 = 15.0f;
 
     float shadowRadius = 18.0f;
-    float shadowBias = 0.001f;
+    // both in shadow texels; scaled to world units by shadowTexelWorld
+    float shadowNormalOffset = 2.0f; // grazing-surface term (walls), matters most under a low sun
+    float shadowDepthBias = 1.2f;    // flat floor; covers light-facing surfaces (ground)
 
     app.setDebugTab(
         "Sandbox",
@@ -122,7 +127,8 @@ int main()
             ImGui::SliderFloat("Sky illuminance (lux)", &skyIlluminance, 0.0f, 50000.0f, "%.0f");
             ImGui::Separator();
             ImGui::SliderFloat("Shadow radius", &shadowRadius, 5.0f, 60.0f);
-            ImGui::SliderFloat("Shadow bias", &shadowBias, 0.0f, 0.01f, "%.5f");
+            ImGui::SliderFloat("Shadow normal offset", &shadowNormalOffset, 0.0f, 6.0f, "%.2f");
+            ImGui::SliderFloat("Shadow depth bias", &shadowDepthBias, 0.0f, 6.0f, "%.2f");
             ImGui::Separator();
             ImGui::SliderFloat("Exposure (EV100)", &exposureEv100, 0.0f, 20.0f, "%.1f");
         });
@@ -160,17 +166,22 @@ int main()
                 Core::orthographic(shadowRadius, shadowRadius, 0.05f, shadowRadius * 3.0f) *
                 glm::lookAt(SceneCenter + (sun * shadowRadius * 1.5f), SceneCenter, up);
 
+            // world size of one shadow texel
+            const float shadowTexelWorld =
+                2.0f * shadowRadius / static_cast<float>(ShadowMapResolution);
+
             const GPU::FrameUniforms::Ref viewRef = frame.uniforms.push(
                 ViewBlock{.viewProj = viewProj, .lightViewProj = lightViewProj});
 
-            // draws[i] and commands[i] are 1:1 so gl_DrawID indexes both.
-            // vertexOffset stays 0: vertices are pulled via baseVertex, not fixed-function fetch
+            // draws[i]/commands[i] are 1:1 so gl_DrawID indexes both
+            // backface culled first, double sided second, dynamic state change between
             const uint32_t vertexSlot = app.geometry().vertexBufferSlot();
             std::vector<DrawBlock> draws;
             std::vector<vk::DrawIndexedIndirectCommand> commands;
             draws.reserve(sponza.submeshes.size());
             commands.reserve(sponza.submeshes.size());
-            for (const Asset::SubMesh& submesh : sponza.submeshes)
+
+            const auto appendDraw = [&](const Asset::SubMesh& submesh)
             {
                 draws.push_back({.model = submesh.model,
                                  .normalMatrix = submesh.normalMatrix,
@@ -182,8 +193,27 @@ int main()
                                     1,
                                     submesh.range.firstIndex,
                                     /*vertexOffset*/ 0,
-                                    0});
+                                    /*firstInstance*/ 0});
+            };
+            const auto isDoubleSided = [&](const Asset::SubMesh& submesh)
+            { return sponza.materials[submesh.materialIndex].doubleSided != 0; };
+
+            for (const Asset::SubMesh& submesh : sponza.submeshes)
+            {
+                if (!isDoubleSided(submesh))
+                {
+                    appendDraw(submesh);
+                }
             }
+            const auto culledCount = static_cast<uint32_t>(draws.size());
+            for (const Asset::SubMesh& submesh : sponza.submeshes)
+            {
+                if (isDoubleSided(submesh))
+                {
+                    appendDraw(submesh);
+                }
+            }
+            const auto doubleSidedCount = static_cast<uint32_t>(draws.size()) - culledCount;
 
             const GPU::FrameUniforms::Ref drawsRef =
                 frame.uniforms.pushArray(std::span<const DrawBlock>(draws));
@@ -194,46 +224,68 @@ int main()
             const vk::Buffer indirectBuffer = frame.uniforms.currentBuffer();
             const auto drawCount = static_cast<uint32_t>(commands.size());
 
-            // frame-constant now: nothing per-draw remains in the push
             const GeometryPush basePush{.bufferSlot = viewRef.slot,
                                         .viewOffset = viewRef.offset,
                                         .drawOffset = drawsRef.offset,
                                         .materialOffset = materialsRef.offset};
 
-            const auto drawScene =
-                [basePush, indirectBuffer, indirectRef, drawCount](Graph::CmdRecorder& rec)
-            {
-                rec.pushConstants(basePush);
-                rec.drawIndexedIndirect(indirectBuffer,
-                                        indirectRef.offset,
-                                        drawCount,
-                                        sizeof(vk::DrawIndexedIndirectCommand));
-            };
-
+            // depth-only pass; no culling needed, bindPipeline leaves cull at None
             graph.addPass("shadow",
                           {.depth = Graph::DepthAttachment{.texture = shadowMap}},
-                          [&app, shadowPipeline, drawScene](Graph::CmdRecorder& rec)
+                          [&app, shadowPipeline, basePush, indirectBuffer, indirectRef, drawCount](
+                              Graph::CmdRecorder& rec)
                           {
                               rec.bindPipeline(app.pipeline(shadowPipeline));
                               rec.bindIndexBuffer(app.geometry().indexBuffer());
-                              drawScene(rec);
+                              rec.pushConstants(basePush);
+                              rec.drawIndexedIndirect(indirectBuffer,
+                                                      indirectRef.offset,
+                                                      drawCount,
+                                                      sizeof(vk::DrawIndexedIndirectCommand));
                           });
 
             graph.addPass("gbuffer",
                           {.color = {{albedo}, {normal}, {material}},
                            .depth = Graph::DepthAttachment{.texture = depth}},
-                          [&app, gbufferPipeline, drawScene](Graph::CmdRecorder& rec)
+                          [&app,
+                           gbufferPipeline,
+                           basePush,
+                           indirectBuffer,
+                           indirectRef,
+                           culledCount,
+                           doubleSidedCount](Graph::CmdRecorder& rec)
                           {
+                              constexpr uint32_t cmdStride = sizeof(vk::DrawIndexedIndirectCommand);
+                              constexpr uint32_t drawStride = sizeof(DrawBlock);
                               rec.bindPipeline(app.pipeline(gbufferPipeline));
                               rec.bindIndexBuffer(app.geometry().indexBuffer());
-                              drawScene(rec);
+
+                              // single-sided: back-face culled
+                              rec.setCullMode(Graph::CullMode::Back);
+                              rec.pushConstants(basePush);
+                              rec.drawIndexedIndirect(
+                                  indirectBuffer, indirectRef.offset, culledCount, cmdStride);
+
+                              // double-sided: no culling, its own DrawBlock/command range
+                              if (doubleSidedCount > 0)
+                              {
+                                  GeometryPush doublePush = basePush;
+                                  doublePush.drawOffset += culledCount * drawStride;
+                                  rec.setCullMode(Graph::CullMode::None);
+                                  rec.pushConstants(doublePush);
+                                  rec.drawIndexedIndirect(indirectBuffer,
+                                                          indirectRef.offset +
+                                                              (culledCount * cmdStride),
+                                                          doubleSidedCount,
+                                                          cmdStride);
+                              }
                           });
 
             const GPU::FrameUniforms::Ref lightingParams = frame.uniforms.push(
                 LightingBlock{.invViewProj = glm::inverse(viewProj),
                               .lightViewProj = lightViewProj,
                               .sunDir = sunDir,
-                              .shadowBias = shadowBias,
+                              .normalOffset = shadowNormalOffset * shadowTexelWorld,
                               .sunRadiance = sunColor * sunIlluminance,
                               .shadowMapSize = ShadowMapResolution,
                               .ambientRadiance = skyColor * skyIlluminance,
@@ -243,7 +295,9 @@ int main()
                               .shadowSlot = graph.shadowSlot(shadowMap),
                               .materialSlot = graph.bindlessSlot(material),
                               .cameraPos = camera.position(),
-                              .exposure = 1.0f / (1.2f * std::exp2(exposureEv100))});
+                              .exposure = 1.0f / (1.2f * std::exp2(exposureEv100)),
+                              .depthBias = shadowDepthBias * shadowTexelWorld,
+                              ._pad = {}});
 
             graph.addPass("lighting",
                           {.input = {albedo, normal, material, depth, shadowMap},

@@ -87,7 +87,7 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
     const vk::PipelineViewportStateCreateInfo viewport({}, 1, nullptr, 1, nullptr);
 
     vk::PipelineRasterizationStateCreateInfo raster;
-    raster.cullMode = vk::CullModeFlagBits::eNone;
+    raster.cullMode = vk::CullModeFlagBits::eNone; // recorder sets it dynamicly for now
     raster.frontFace = vk::FrontFace::eCounterClockwise;
     raster.lineWidth = 1.0f;
 
@@ -104,7 +104,10 @@ vk::Pipeline PipelineFactory::createGraphics(std::span<const uint32_t> vertexSpi
         {}, vk::False, vk::LogicOp::eCopy, blendAttachments);
 
     const vk::DynamicState dynamicStates[] = {vk::DynamicState::eViewport,
-                                              vk::DynamicState::eScissor};
+                                              vk::DynamicState::eScissor,
+                                              vk::DynamicState::eCullMode,
+                                              vk::DynamicState::eDepthBiasEnable,
+                                              vk::DynamicState::eDepthBias};
     const vk::PipelineDynamicStateCreateInfo dynamic({}, dynamicStates);
 
     vk::PipelineDepthStencilStateCreateInfo depthStencil;

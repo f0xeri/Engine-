@@ -23,7 +23,9 @@ struct Material
     uint32_t albedoTexture;            // bindless slot index
     uint32_t metallicRoughnessTexture; // glTF packs roughness in G, metallic in B
     uint32_t normalTexture;            // tangent-space, linear
-    uint32_t _pad[3];                  // 48B: keeps the GPU material-table stride 16-aligned
+
+    uint32_t doubleSided; // CPU-only, shader ignores it
+    uint32_t _pad[2] = {};
 };
 static_assert(sizeof(Material) == 48);
 

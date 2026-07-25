@@ -11,7 +11,7 @@ struct LightingBlock
     column_major float4x4 lightViewProj; // world -> light clip
 
     float3 sunDir;
-    float shadowBias;
+    float normalOffset; // world-space normal-offset bias magnitude for shadows
 
     float3 sunRadiance;
     float shadowMapSize;
@@ -26,6 +26,9 @@ struct LightingBlock
 
     float3 cameraPos;
     float exposure;
+
+    float depthBias;
+    float3 _pad;
 };
 
 struct LightingPush
@@ -58,11 +61,19 @@ static const float3 SkyRadiance = float3(8000.0, 13000.0, 24000.0);
 // 1 = lit, 0 = occluded
 float shadowFactor(float4x4 lightViewProj,
                    float3 worldPos,
+                   float3 N,
+                   float3 L,
                    float NdotL,
-                   float bias,
+                   float normalOffset,
+                   float depthBias,
                    float mapSize,
                    uint mapSlot)
 {
+    // https://github.com/godotengine/godot/issues/17260
+    // https://github.com/godotengine/godot/pull/37678
+    // https://github.com/OGRECave/ogre-next/issues/100
+    worldPos += N * normalOffset * saturate(1.0 - NdotL) + L * depthBias;
+
     float4 lightClip = mul(lightViewProj, float4(worldPos, 1.0));
     lightClip /= lightClip.w;
 
@@ -74,8 +85,7 @@ float shadowFactor(float4x4 lightViewProj,
         return 1.0; // outside the map - lit
     }
 
-    // bigger angle between normal and sun dir - bigger bias
-    const float reference = lightClip.z + (bias / max(NdotL, 0.15));
+    const float reference = lightClip.z;
 
     // 3x3 PCF
     // For each texel fetched (based on the sampler configuration of the filter mode), 
@@ -175,8 +185,8 @@ float4 fsMain(VSOutput input) : SV_Target
     const float3 f0 = lerp(float3(0.04), albedo, metallic);
     const float3 diffuseColor = (1.0 - metallic) * albedo;
 
-    const float shadow = shadowFactor(
-        p.lightViewProj, world.xyz, NdotL, p.shadowBias, p.shadowMapSize, p.shadowSlot);
+    const float shadow = shadowFactor(p.lightViewProj, world.xyz, N, l, NdotL, p.normalOffset,
+                                      p.depthBias, p.shadowMapSize, p.shadowSlot);
     const float3 direct =
         brdf(N, v, l, diffuseColor, f0, perceptualRoughness) * p.sunRadiance * NdotL * shadow;
 
